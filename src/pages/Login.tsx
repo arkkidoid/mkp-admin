@@ -45,12 +45,12 @@ export default function Login() {
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center py-12 px-4 sm:px-6 lg:px-8">
       {/* Logo + Header */}
-      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center">
-        <div className="mx-auto w-56 h-56 -mb-8 relative z-10">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md text-center flex flex-col items-center">
+        <div className="mx-auto w-56 h-56 relative z-10">
           <img src="/image.png" alt="ARK Kidoid Logo" className="w-full h-full object-contain scale-125 drop-shadow-md" />
         </div>
         
-        <p className="text-sm font-semibold text-primary mt-1">Masti Ki Pathshala</p>
+        <p className="text-sm font-semibold text-primary mt-4">Masti Ki Pathshala</p>
         <p className="mt-2 text-sm text-text-secondary">Admin Portal — Sign in to manage the platform</p>
       </div>
 
