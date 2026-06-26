@@ -2,6 +2,8 @@ import { useQuery } from '@tanstack/react-query';
 import { Users, GraduationCap, Layers, TrendingUp, Percent, IndianRupee } from 'lucide-react';
 import apiClient from '../../api/client';
 
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts';
+
 export default function Analytics() {
   const { data, isLoading } = useQuery({
     queryKey: ['analytics'],
@@ -49,18 +51,44 @@ export default function Analytics() {
             ))}
           </div>
 
-          {/* Chart placeholders - will be replaced with recharts in Phase 2 */}
+          {/* Charts */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="card border border-border-light">
               <h2 className="text-lg font-bold text-text mb-4">Attendance Trend (Monthly)</h2>
-              <div className="h-48 bg-gray-50 rounded-xl border border-dashed border-border flex items-center justify-center">
-                <p className="text-text-secondary text-sm">Chart — install recharts to enable</p>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={stats.attendanceTrend || []} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} domain={[0, 100]} dx={-10} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                      cursor={{ stroke: '#F47A3A', strokeWidth: 1, strokeDasharray: '5 5' }}
+                    />
+                    <Line type="monotone" dataKey="attendanceRate" name="Attendance %" stroke="#F47A3A" strokeWidth={3} dot={{ r: 4, strokeWidth: 2, fill: '#fff' }} activeDot={{ r: 6, strokeWidth: 0 }} />
+                  </LineChart>
+                </ResponsiveContainer>
               </div>
             </div>
+            
             <div className="card border border-border-light">
               <h2 className="text-lg font-bold text-text mb-4">Fee Collection</h2>
-              <div className="h-48 bg-gray-50 rounded-xl border border-dashed border-border flex items-center justify-center">
-                <p className="text-text-secondary text-sm">Chart — install recharts to enable</p>
+              <div className="h-72">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={stats.revenueTrend || []} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
+                    <XAxis dataKey="month" axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fill: '#6B7280', fontSize: 12 }} tickFormatter={(val) => `₹${val/1000}k`} dx={-10} />
+                    <Tooltip 
+                      contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
+                      cursor={{ fill: '#F3F4F6' }}
+                      formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
+                    />
+                    <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
+                    <Bar dataKey="collected" name="Collected" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                    <Bar dataKey="pending" name="Pending" fill="#F59E0B" radius={[4, 4, 0, 0]} maxBarSize={40} />
+                  </BarChart>
+                </ResponsiveContainer>
               </div>
             </div>
           </div>

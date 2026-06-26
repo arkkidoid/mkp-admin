@@ -95,7 +95,7 @@ export default function Teachers() {
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-2">
                       <button className="p-1.5 hover:text-primary text-text-light" onClick={() => openEdit(t)}><Edit2 className="w-4 h-4" /></button>
-                      <button className="p-1.5 hover:text-error text-text-light" onClick={() => { if (confirm('Deactivate this instructor?')) deleteMutation.mutate(t._id); }}><Trash2 className="w-4 h-4" /></button>
+                      <button className="p-1.5 hover:text-error text-text-light transition-colors" onClick={() => { if (confirm('Permanently delete this teacher?')) deleteMutation.mutate(t._id); }}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
                 </tr>

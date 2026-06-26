@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-export const API_URL = 'http://localhost:5001/api';
+export const API_URL = 'https://mkp-backend-production-d853.up.railway.app/api';
 
 const apiClient = axios.create({
   baseURL: API_URL,

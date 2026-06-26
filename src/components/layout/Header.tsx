@@ -1,9 +1,11 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Bell, Search, LogOut } from 'lucide-react';
 import { useAuthStore } from '../../store/authStore';
 
 export default function Header() {
   const { user, logout } = useAuthStore();
+  const navigate = useNavigate();
 
   return (
     <header className="h-16 bg-surface border-b border-border-light flex items-center justify-between px-6 shadow-sm z-10">
@@ -21,14 +23,11 @@ export default function Header() {
       </div>
 
       <div className="flex items-center space-x-6">
-        <button className="relative text-text-secondary hover:text-primary transition-colors">
+        <button 
+          className="relative text-text-secondary hover:text-primary transition-colors"
+          onClick={() => navigate('/notifications')}
+        >
           <Bell className="w-5 h-5" />
-          <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-error opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-4 w-4 bg-error text-[9px] font-bold text-white items-center justify-center border-2 border-surface">
-              3
-            </span>
-          </span>
         </button>
 
         <div className="h-8 w-px bg-border-light"></div>
