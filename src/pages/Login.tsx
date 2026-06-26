@@ -49,7 +49,7 @@ export default function Login() {
         <div className="mx-auto w-56 h-56 -mb-8 relative z-10">
           <img src="/image.png" alt="ARK Kidoid Logo" className="w-full h-full object-contain scale-125 drop-shadow-md" />
         </div>
-        <h1 className="text-3xl font-extrabold text-text tracking-tight">ARK Kidoid</h1>
+        
         <p className="text-sm font-semibold text-primary mt-1">Masti Ki Pathshala</p>
         <p className="mt-2 text-sm text-text-secondary">Admin Portal — Sign in to manage the platform</p>
       </div>
