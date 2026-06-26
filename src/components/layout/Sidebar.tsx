@@ -43,7 +43,7 @@ export default function Sidebar() {
   return (
     <aside className="w-64 bg-surface border-r border-border-light flex flex-col h-full shadow-soft z-10 overflow-y-auto">
       <div className="h-20 flex items-center justify-center border-b border-border-light flex-shrink-0">
-        <img src="/src/assets/logo.png" alt="Logo" className="w-12 h-12 object-contain mr-2 scale-110" />
+        <img src="/logo.png" alt="Logo" className="w-16 h-16 object-contain mr-2 scale-125" />
         <h1 className="text-xl font-bold text-primary tracking-tight">ARK Kidoid</h1>
         <span className="ml-2 text-xs bg-primary-bg text-primary-dark px-2 py-0.5 rounded-full font-medium">Admin</span>
       </div>
