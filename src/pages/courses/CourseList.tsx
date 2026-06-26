@@ -43,13 +43,13 @@ export default function CourseList() {
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-text">Courses</h1>
-          <p className="text-sm text-text-secondary mt-1">{(courses as any[]).length} courses offered at ARK Kidoid</p>
+          <h1 className="text-xl md:text-2xl font-bold text-text">Courses</h1>
+          <p className="text-sm text-text-secondary mt-0.5">{(courses as any[]).length} courses offered at ARK Kidoid</p>
         </div>
-        <button className="btn-primary flex items-center" onClick={openAdd}>
+        <button className="btn-primary flex items-center self-start sm:self-auto" onClick={openAdd}>
           <Plus className="w-4 h-4 mr-2" />Add Course
         </button>
       </div>
@@ -57,13 +57,13 @@ export default function CourseList() {
       {isLoading ? (
         <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
           {(courses as any[]).map((c: any) => (
             <div key={c._id} className="card border border-border-light hover:shadow-medium transition-shadow">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center" style={{ backgroundColor: (c.color ?? '#ccc') + '20' }}>
-                    <BookOpen className="w-6 h-6" style={{ color: c.color ?? '#666' }} />
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (c.color ?? '#ccc') + '20' }}>
+                    <BookOpen className="w-5 h-5" style={{ color: c.color ?? '#666' }} />
                   </div>
                   <div>
                     <p className="font-bold text-text leading-tight">{c.name}</p>
@@ -84,7 +84,7 @@ export default function CourseList() {
           ))}
 
           {/* Add card */}
-          <button onClick={openAdd} className="card border-2 border-dashed border-border flex flex-col items-center justify-center py-8 hover:border-primary hover:text-primary text-text-secondary transition-colors">
+          <button onClick={openAdd} className="card border-2 border-dashed border-border flex flex-col items-center justify-center py-8 hover:border-primary hover:text-primary text-text-secondary transition-colors min-h-[120px]">
             <Plus className="w-8 h-8 mb-2" />
             <span className="text-sm font-medium">Add New Course</span>
           </button>
@@ -92,13 +92,13 @@ export default function CourseList() {
       )}
 
       {modal.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-2xl shadow-medium w-full max-w-md">
-            <div className="flex items-center justify-between p-6 border-b border-border-light">
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-medium w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border-light sticky top-0 bg-surface">
               <h2 className="text-lg font-bold text-text">{modal.mode === 'add' ? 'Add Course' : 'Edit Course'}</h2>
               <button onClick={close}><X className="w-5 h-5 text-text-light" /></button>
             </div>
-            <div className="p-6 space-y-4">
+            <div className="p-4 md:p-6 space-y-4">
               <div>
                 <label className="label">Course Name</label>
                 <input className="input-field" value={form.name} onChange={f('name')} placeholder="e.g. Robotics & Electronics" />
@@ -128,7 +128,7 @@ export default function CourseList() {
               </div>
               {err && <p className="text-error text-sm">{err}</p>}
             </div>
-            <div className="flex gap-3 p-6 border-t border-border-light">
+            <div className="flex gap-3 p-4 md:p-6 border-t border-border-light">
               <button className="btn-outline flex-1" onClick={close}>Cancel</button>
               <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save'}</button>
             </div>

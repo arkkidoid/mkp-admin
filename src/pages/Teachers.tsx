@@ -17,7 +17,7 @@ export default function Teachers() {
     queryFn: async () => (await apiClient.get('/admin/teachers')).data.data ?? [],
   });
 
-  // API returns flat user: { _id, name, email, phone, isActive, profile: { employeeId, qualification, experience, specialization, batches, subjects } }
+  // API returns flat user: { _id, name, email, phone, isActive, profile: { employeeId, qualification, experience, specialization, batches } }
   const filtered = (teachers as any[]).filter((t) =>
     (t.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (t.profile?.employeeId ?? '').toLowerCase().includes(search.toLowerCase())
@@ -51,23 +51,23 @@ export default function Teachers() {
 
   return (
     <div className="max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
         <div>
-          <h1 className="text-2xl font-bold text-text">Instructors</h1>
-          <p className="text-sm text-text-secondary mt-1">{(teachers as any[]).length} instructors</p>
+          <h1 className="text-xl md:text-2xl font-bold text-text">Instructors</h1>
+          <p className="text-sm text-text-secondary mt-0.5">{(teachers as any[]).length} instructors</p>
         </div>
-        <button className="btn-primary flex items-center" onClick={openAdd}>
+        <button className="btn-primary flex items-center self-start sm:self-auto" onClick={openAdd}>
           <Plus className="w-4 h-4 mr-2" />Add Instructor
         </button>
       </div>
 
-      <div className="card flex-1 flex flex-col min-h-0">
-        <div className="relative w-72 mb-5">
+      <div className="card flex-1 flex flex-col min-h-0 !p-3 md:!p-6">
+        <div className="relative w-full sm:w-72 mb-4">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
           <input className="input-field pl-9 py-2" placeholder="Search by name or employee ID..." value={search} onChange={(e) => setSearch(e.target.value)} />
         </div>
-        <div className="flex-1 overflow-auto">
-          <table className="w-full text-left">
+        <div className="flex-1 overflow-x-auto">
+          <table className="w-full text-left min-w-[640px]">
             <thead className="bg-gray-50 sticky top-0">
               <tr>{['Instructor','Emp ID','Specialization','Batches','Exp','Status',''].map((h) => (
                 <th key={h} className="py-3 px-4 text-xs font-semibold text-text-secondary uppercase tracking-wide border-b border-border-light">{h}</th>
@@ -94,7 +94,7 @@ export default function Teachers() {
                   <td className="py-3 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${t.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{t.isActive ? 'Active' : 'Inactive'}</span></td>
                   <td className="py-3 px-4 text-right">
                     <div className="flex justify-end gap-2">
-                      <button className="p-1.5 hover:text-primary text-text-light" onClick={() => openEdit(t)}><Edit2 className="w-4 h-4" /></button>
+                      <button className="p-1.5 hover:text-primary text-text-light transition-colors" onClick={() => openEdit(t)}><Edit2 className="w-4 h-4" /></button>
                       <button className="p-1.5 hover:text-error text-text-light transition-colors" onClick={() => { if (confirm('Permanently delete this teacher?')) deleteMutation.mutate(t._id); }}><Trash2 className="w-4 h-4" /></button>
                     </div>
                   </td>
@@ -106,28 +106,28 @@ export default function Teachers() {
       </div>
 
       {modal.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-surface rounded-2xl shadow-medium w-full max-w-lg max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-6 border-b border-border-light sticky top-0 bg-surface">
+        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4">
+          <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-medium w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border-light sticky top-0 bg-surface">
               <h2 className="text-lg font-bold text-text">{modal.mode === 'add' ? 'Add Instructor' : 'Edit Instructor'}</h2>
               <button onClick={close}><X className="w-5 h-5 text-text-light" /></button>
             </div>
-            <div className="p-6 grid grid-cols-2 gap-4">
+            <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
               {([['Full Name','name','text'],['Phone','phone','tel'],['Email','email','email'],['Employee ID','employeeId','text'],['Qualification','qualification','text'],['Experience (years)','experience','number'],['Specialization','specialization','text']] as [string,keyof typeof form,string][]).map(([label, key, type]) => (
-                <div key={key} className={key === 'specialization' ? 'col-span-2' : ''}>
+                <div key={key} className={key === 'specialization' ? 'sm:col-span-2' : ''}>
                   <label className="label">{label}</label>
                   <input className="input-field" type={type} value={form[key]} onChange={f(key)} placeholder={label} />
                 </div>
               ))}
               {modal.mode === 'add' && (
-                <div className="col-span-2">
+                <div className="sm:col-span-2">
                   <label className="label">Password</label>
                   <input className="input-field" type="password" value={form.password} onChange={f('password')} placeholder="Temporary password" />
                 </div>
               )}
-              {err && <p className="col-span-2 text-error text-sm">{err}</p>}
+              {err && <p className="sm:col-span-2 text-error text-sm">{err}</p>}
             </div>
-            <div className="flex gap-3 p-6 border-t border-border-light">
+            <div className="flex gap-3 p-4 md:p-6 border-t border-border-light">
               <button className="btn-outline flex-1" onClick={close}>Cancel</button>
               <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save'}</button>
             </div>
