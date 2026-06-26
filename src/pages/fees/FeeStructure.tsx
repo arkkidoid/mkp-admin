@@ -27,7 +27,7 @@ export default function FeeStructure() {
   });
 
   const { data: children = [] } = useQuery({ queryKey: ['adminChildrenMin'], queryFn: async () => (await apiClient.get('/admin/children')).data.data ?? [] });
-  const { data: parents = [] } = useQuery({ queryKey: ['adminParentsMin'], queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [] });
+
 
   const fees = (feesData as any[]).filter((f) =>
     (f.title ?? '').toLowerCase().includes(search.toLowerCase()) ||

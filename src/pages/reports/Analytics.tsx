@@ -82,7 +82,7 @@ export default function Analytics() {
                     <Tooltip 
                       contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)' }}
                       cursor={{ fill: '#F3F4F6' }}
-                      formatter={(value: number) => [`₹${value.toLocaleString()}`, undefined]}
+                      formatter={((value: any) => [`₹${Number(value).toLocaleString()}`, '']) as any}
                     />
                     <Legend iconType="circle" wrapperStyle={{ paddingTop: '10px' }} />
                     <Bar dataKey="collected" name="Collected" fill="#10B981" radius={[4, 4, 0, 0]} maxBarSize={40} />

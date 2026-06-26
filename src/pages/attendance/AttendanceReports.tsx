@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { CalendarDays, Download } from 'lucide-react';
+import { Download } from 'lucide-react';
 import apiClient from '../../api/client';
 
 export default function AttendanceReports() {
