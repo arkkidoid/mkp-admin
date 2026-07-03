@@ -1,22 +1,20 @@
 import { useState } from 'react';
-import { Save } from 'lucide-react';
+import { Save, CheckCircle2, Building2, Bell } from 'lucide-react';
+import PageHeader from '../../components/ui/PageHeader';
+
+const EMPTY = {
+  schoolName: 'ARK Kidoid School', address: '', phone: '', email: '',
+  academicYear: '2025-26', website: '', principalName: '',
+};
 
 export default function CMS() {
-  const [form, setForm] = useState({
-    schoolName: 'ARK Kidoid School',
-    address: '',
-    phone: '',
-    email: '',
-    academicYear: '2025-26',
-    website: '',
-    principalName: '',
-  });
+  const [form, setForm] = useState({ ...EMPTY });
   const [saved, setSaved] = useState(false);
+  const [notifications, setNotifications] = useState({ attendance: true, feeReminder: true, assignments: true });
 
   const handleSave = () => {
-    // In production, POST to /admin/settings
     setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setTimeout(() => setSaved(false), 2500);
   };
 
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
@@ -27,20 +25,25 @@ export default function CMS() {
         type={type}
         placeholder={placeholder || label}
         value={form[key]}
-        onChange={(e) => setForm({ ...form, [key]: e.target.value })}
+        onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
       />
     </div>
   );
 
-  return (
-    <div className="max-w-3xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">System Settings</h1>
-        <p className="text-sm text-text-secondary mt-1">Configure your school information</p>
-      </div>
+  const toggle = (key: keyof typeof notifications) =>
+    setNotifications(p => ({ ...p, [key]: !p[key] }));
 
-      <div className="card border border-border-light space-y-5">
-        <h2 className="text-lg font-bold text-text border-b border-border-light pb-4">School Information</h2>
+  return (
+    <div className="page-container max-w-2xl">
+      <PageHeader title="System Settings" subtitle="Configure school information and preferences" />
+
+      <div className="card space-y-5">
+        <div className="flex items-center gap-3 pb-4 border-b border-border-light">
+          <div className="w-9 h-9 rounded-xl bg-primary-bg flex items-center justify-center">
+            <Building2 className="w-4.5 h-4.5 text-primary" />
+          </div>
+          <p className="font-bold text-text">School Information</p>
+        </div>
         {field('School Name', 'schoolName')}
         {field('Principal / Director Name', 'principalName')}
         {field('Address', 'address', 'text', '123 School St, City')}
@@ -54,29 +57,41 @@ export default function CMS() {
         </div>
       </div>
 
-      <div className="card border border-border-light space-y-4">
-        <h2 className="text-lg font-bold text-text border-b border-border-light pb-4">Notifications</h2>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" defaultChecked className="w-4 h-4 accent-primary" />
-          <span className="text-sm text-text">Send attendance notifications to parents</span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" defaultChecked className="w-4 h-4 accent-primary" />
-          <span className="text-sm text-text">Send fee reminders before due date</span>
-        </label>
-        <label className="flex items-center gap-3 cursor-pointer">
-          <input type="checkbox" defaultChecked className="w-4 h-4 accent-primary" />
-          <span className="text-sm text-text">Notify parents of new assignments</span>
-        </label>
-        <p className="text-xs text-text-light">SMS notifications via fast2sms will be configured separately.</p>
+      <div className="card space-y-4">
+        <div className="flex items-center gap-3 pb-4 border-b border-border-light">
+          <div className="w-9 h-9 rounded-xl bg-primary-bg flex items-center justify-center">
+            <Bell className="w-4.5 h-4.5 text-primary" />
+          </div>
+          <p className="font-bold text-text">Notification Preferences</p>
+        </div>
+        {([
+          { key: 'attendance', label: 'Send attendance notifications to parents' },
+          { key: 'feeReminder', label: 'Send fee reminders before due date' },
+          { key: 'assignments', label: 'Notify parents of new assignments' },
+        ] as const).map(item => (
+          <label key={item.key} className="flex items-center gap-3 cursor-pointer select-none group">
+            <div
+              className={`w-10 h-6 rounded-full transition-colors flex-shrink-0 flex items-center px-0.5 ${notifications[item.key] ? 'bg-primary' : 'bg-border'}`}
+              onClick={() => toggle(item.key)}
+            >
+              <div className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${notifications[item.key] ? 'translate-x-4' : 'translate-x-0'}`} />
+            </div>
+            <span className="text-sm text-text group-hover:text-text/80 transition-colors">{item.label}</span>
+          </label>
+        ))}
+        <p className="text-xs text-text-light pt-1">SMS via fast2sms will be configured separately.</p>
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="btn-primary flex items-center" onClick={handleSave}>
-          <Save className="w-4 h-4 mr-2" />
+        <button className="btn-primary" onClick={handleSave}>
+          <Save className="w-3.5 h-3.5 mr-1.5" />
           {saved ? 'Saved!' : 'Save Settings'}
         </button>
-        {saved && <p className="text-sm text-green-600 font-medium">Settings saved successfully</p>}
+        {saved && (
+          <div className="flex items-center gap-1.5 text-success text-sm font-medium">
+            <CheckCircle2 className="w-4 h-4" />Settings saved successfully
+          </div>
+        )}
       </div>
     </div>
   );

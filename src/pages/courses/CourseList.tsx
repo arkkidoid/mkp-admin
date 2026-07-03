@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2, X, BookOpen } from 'lucide-react';
+import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react';
 import apiClient from '../../api/client';
+import Modal from '../../components/ui/Modal';
+import PageHeader from '../../components/ui/PageHeader';
+import EmptyState from '../../components/ui/EmptyState';
 
 const COLORS = ['#E53935','#1E88E5','#43A047','#FB8C00','#8E24AA','#00ACC1','#F4511E','#FFB300','#6D4C41','#546E7A'];
 const EMPTY = { name: '', code: '', color: COLORS[0], icon: 'book', description: '' };
@@ -24,6 +27,7 @@ export default function CourseList() {
     setModal({ open: true, mode: 'edit', item: c });
   };
   const close = () => setModal({ open: false, mode: 'add' });
+  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -40,101 +44,88 @@ export default function CourseList() {
     onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
   });
 
-  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
-
   return (
-    <div className="max-w-7xl mx-auto space-y-4 md:space-y-6">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-text">Courses</h1>
-          <p className="text-sm text-text-secondary mt-0.5">{(courses as any[]).length} courses offered at ARK Kidoid</p>
-        </div>
-        <button className="btn-primary flex items-center self-start sm:self-auto" onClick={openAdd}>
-          <Plus className="w-4 h-4 mr-2" />Add Course
-        </button>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Courses"
+        subtitle={`${(courses as any[]).length} courses offered`}
+        action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Course</button>}
+      />
 
       {isLoading ? (
-        <div className="flex items-center justify-center py-20"><div className="w-8 h-8 border-4 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
+        <div className="flex items-center justify-center py-24">
+          <div className="w-7 h-7 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+        </div>
+      ) : (courses as any[]).length === 0 ? (
+        <EmptyState icon={BookOpen} title="No courses yet" description="Add your first course to get started." action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Course</button>} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {(courses as any[]).map((c: any) => (
-            <div key={c._id} className="card border border-border-light hover:shadow-medium transition-shadow">
-              <div className="flex items-start justify-between mb-4">
+            <div key={c._id} className="card hover:shadow-medium transition-shadow duration-200 group">
+              <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (c.color ?? '#ccc') + '20' }}>
-                    <BookOpen className="w-5 h-5" style={{ color: c.color ?? '#666' }} />
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0" style={{ backgroundColor: (c.color ?? '#888') + '20' }}>
+                    <BookOpen className="w-5 h-5" style={{ color: c.color ?? '#888' }} />
                   </div>
                   <div>
-                    <p className="font-bold text-text leading-tight">{c.name}</p>
-                    <p className="text-xs font-mono text-text-secondary mt-0.5">{c.code}</p>
+                    <p className="font-bold text-text text-sm leading-tight">{c.name}</p>
+                    <p className="text-xs font-mono text-text-light mt-0.5">{c.code}</p>
                   </div>
                 </div>
-                <div className="flex gap-1 flex-shrink-0">
-                  <button className="p-1.5 hover:text-primary text-text-light transition-colors" onClick={() => openEdit(c)}><Edit2 className="w-4 h-4" /></button>
-                  <button className="p-1.5 hover:text-error text-text-light transition-colors" onClick={() => { if (confirm(`Remove "${c.name}"?`)) deleteMutation.mutate(c._id); }}><Trash2 className="w-4 h-4" /></button>
+                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(c)}><Edit2 className="w-3.5 h-3.5" /></button>
+                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm(`Remove "${c.name}"?`)) deleteMutation.mutate(c._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
-              {c.description && <p className="text-sm text-text-secondary line-clamp-2">{c.description}</p>}
-              <div className="flex items-center gap-2 mt-3">
-                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: c.color ?? '#ccc' }} />
-                <span className="text-xs text-text-secondary">{c.isActive ? 'Active' : 'Inactive'}</span>
+              {c.description && <p className="text-xs text-text-secondary line-clamp-2 mb-3">{c.description}</p>}
+              <div className="flex items-center gap-2">
+                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? '#888' }} />
+                <span className="text-xs text-text-light">{c.isActive !== false ? 'Active' : 'Inactive'}</span>
               </div>
             </div>
           ))}
 
-          {/* Add card */}
-          <button onClick={openAdd} className="card border-2 border-dashed border-border flex flex-col items-center justify-center py-8 hover:border-primary hover:text-primary text-text-secondary transition-colors min-h-[120px]">
-            <Plus className="w-8 h-8 mb-2" />
-            <span className="text-sm font-medium">Add New Course</span>
+          <button onClick={openAdd} className="card border-2 border-dashed !border-border flex flex-col items-center justify-center py-10 hover:border-primary/50 hover:bg-primary-bg/20 text-text-light hover:text-primary transition-all duration-200 min-h-[120px]">
+            <Plus className="w-6 h-6 mb-1.5" />
+            <span className="text-xs font-semibold">Add Course</span>
           </button>
         </div>
       )}
 
-      {modal.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4">
-          <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-medium w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border-light sticky top-0 bg-surface">
-              <h2 className="text-lg font-bold text-text">{modal.mode === 'add' ? 'Add Course' : 'Edit Course'}</h2>
-              <button onClick={close}><X className="w-5 h-5 text-text-light" /></button>
+      <Modal open={modal.open} onClose={close} title={modal.mode === 'add' ? 'Add Course' : 'Edit Course'}
+        footer={<div className="flex gap-3"><button className="btn-outline flex-1" onClick={close}>Cancel</button><button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving…' : 'Save'}</button></div>}
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="label">Course Name</label>
+            <input className="input-field" value={form.name} onChange={f('name')} placeholder="e.g. Robotics & Electronics" />
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Code</label>
+              <input className="input-field" value={form.code} onChange={f('code')} placeholder="ROB, CHESS…" />
             </div>
-            <div className="p-4 md:p-6 space-y-4">
-              <div>
-                <label className="label">Course Name</label>
-                <input className="input-field" value={form.name} onChange={f('name')} placeholder="e.g. Robotics & Electronics" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Code</label>
-                  <input className="input-field" value={form.code} onChange={f('code')} placeholder="ROB, CHESS..." />
-                </div>
-                <div>
-                  <label className="label">Icon name</label>
-                  <input className="input-field" value={form.icon} onChange={f('icon')} placeholder="book, code, chess..." />
-                </div>
-              </div>
-              <div>
-                <label className="label">Brand Color</label>
-                <div className="flex gap-2 flex-wrap mt-1">
-                  {COLORS.map((col) => (
-                    <button key={col} type="button" onClick={() => setForm((p) => ({ ...p, color: col }))}
-                      className="w-8 h-8 rounded-full border-2 transition-all" style={{ backgroundColor: col, borderColor: form.color === col ? '#000' : 'transparent' }} />
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="label">Description (optional)</label>
-                <textarea className="input-field resize-none" rows={3} value={form.description} onChange={f('description') as any} placeholder="Brief course description..." />
-              </div>
-              {err && <p className="text-error text-sm">{err}</p>}
-            </div>
-            <div className="flex gap-3 p-4 md:p-6 border-t border-border-light">
-              <button className="btn-outline flex-1" onClick={close}>Cancel</button>
-              <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save'}</button>
+            <div>
+              <label className="label">Icon</label>
+              <input className="input-field" value={form.icon} onChange={f('icon')} placeholder="book, code…" />
             </div>
           </div>
+          <div>
+            <label className="label">Brand Color</label>
+            <div className="flex gap-2 flex-wrap mt-1.5">
+              {COLORS.map(col => (
+                <button key={col} type="button" onClick={() => setForm(p => ({ ...p, color: col }))}
+                  className="w-7 h-7 rounded-full ring-offset-2 transition-all" style={{ backgroundColor: col, outline: form.color === col ? `2px solid ${col}` : undefined, outlineOffset: form.color === col ? '2px' : undefined }} />
+              ))}
+            </div>
+          </div>
+          <div>
+            <label className="label">Description</label>
+            <textarea className="input-field resize-none" rows={3} value={form.description} onChange={f('description') as any} placeholder="Brief description…" />
+          </div>
+          {err && <p className="text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

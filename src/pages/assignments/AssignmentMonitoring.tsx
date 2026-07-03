@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Search } from 'lucide-react';
+import { BookOpen } from 'lucide-react';
 import apiClient from '../../api/client';
+import PageHeader from '../../components/ui/PageHeader';
+import SearchInput from '../../components/ui/SearchInput';
+import EmptyState from '../../components/ui/EmptyState';
 
 export default function AssignmentMonitoring() {
   const [search, setSearch] = useState('');
@@ -14,11 +17,7 @@ export default function AssignmentMonitoring() {
 
   const { data: reportData, isLoading } = useQuery({
     queryKey: ['assignmentReport', batchId],
-    queryFn: async () => {
-      const params = batchId ? `?batchId=${batchId}` : '';
-      const res = await apiClient.get(`/reports/assignments${params}`);
-      return res.data.data;
-    },
+    queryFn: async () => (await apiClient.get(`/reports/assignments${batchId ? `?batchId=${batchId}` : ''}`)).data.data,
   });
 
   const rows = (reportData || []).filter((r: any) =>
@@ -26,66 +25,50 @@ export default function AssignmentMonitoring() {
   );
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-text">Assignment Monitoring</h1>
-        <p className="text-sm text-text-secondary mt-1">Track submission rates across all assignments</p>
-      </div>
+    <div className="page-container">
+      <PageHeader title="Assignment Monitoring" subtitle="Track submission rates across all assignments" />
 
-      <div className="card border border-border-light flex gap-4 items-end">
-        <div className="flex-1">
-          <label className="label">Search Assignment</label>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-            <input className="input-field pl-9 py-2" placeholder="Search by title..." value={search} onChange={(e) => setSearch(e.target.value)} />
-          </div>
-        </div>
-        <div>
-          <label className="label">Batch</label>
-          <select className="input-field py-2" value={batchId} onChange={(e) => setBatchId(e.target.value)}>
+      <div className="card !p-0 overflow-hidden">
+        <div className="p-4 border-b border-border-light flex flex-col sm:flex-row gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by assignment title…" className="flex-1 sm:max-w-72" />
+          <select className="select-field sm:w-44" value={batchId} onChange={e => setBatchId(e.target.value)}>
             <option value="">All Batches</option>
             {batchesData?.map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
           </select>
         </div>
-      </div>
-
-      <div className="card border border-border-light overflow-auto">
-        <table className="w-full text-left border-collapse">
-          <thead className="bg-gray-50">
-            <tr>
-              {['Assignment','Batch','Due Date','Submitted','Total','Completion Rate'].map((h) => (
-                <th key={h} className="py-3 px-4 text-sm font-semibold text-text-secondary border-b border-border-light">{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-border-light">
-            {isLoading ? (
-              <tr><td colSpan={6} className="text-center py-8 text-text-secondary">Loading...</td></tr>
-            ) : rows.length === 0 ? (
-              <tr><td colSpan={6} className="text-center py-8 text-text-secondary">No assignments found.</td></tr>
-            ) : rows.map((row: any, i: number) => {
-              const pct = row.completionRate;
-              const barColor = pct >= 80 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-400' : 'bg-red-400';
-              return (
-                <tr key={i} className="hover:bg-gray-50">
-                  <td className="py-3 px-4 font-medium text-text">{row.assignment.title}</td>
-                  <td className="py-3 px-4 text-text-secondary">{row.batch?.name || '—'}</td>
-                  <td className="py-3 px-4 text-text-secondary">{new Date(row.assignment.dueDate).toLocaleDateString('en-IN')}</td>
-                  <td className="py-3 px-4 font-semibold text-accent-blue">{row.submitted}</td>
-                  <td className="py-3 px-4 text-text-secondary">{row.totalChildren}</td>
-                  <td className="py-3 px-4">
-                    <div className="flex items-center gap-2">
-                      <div className="flex-1 h-2 bg-gray-100 rounded-full overflow-hidden">
-                        <div className={`h-full ${barColor} rounded-full`} style={{ width: `${pct}%` }} />
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[600px]">
+            <thead className="bg-background border-b border-border-light">
+              <tr>{['Assignment', 'Batch', 'Due Date', 'Submitted', 'Total', 'Completion'].map(h => <th key={h} className="table-header">{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
+              ) : rows.length === 0 ? (
+                <tr><td colSpan={6}><EmptyState icon={BookOpen} title="No assignments found" description={search ? 'Try a different search.' : 'Assignment data will appear here once teachers create assignments.'} /></td></tr>
+              ) : rows.map((row: any, i: number) => {
+                const pct = row.completionRate ?? 0;
+                return (
+                  <tr key={i} className="border-b border-border-light last:border-0 hover:bg-background/60 transition-colors">
+                    <td className="table-cell font-semibold text-text">{row.assignment.title}</td>
+                    <td className="table-cell text-sm text-text-secondary">{row.batch?.name || '—'}</td>
+                    <td className="table-cell text-sm text-text-secondary">{new Date(row.assignment.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</td>
+                    <td className="table-cell font-bold text-info">{row.submitted}</td>
+                    <td className="table-cell text-sm text-text-secondary">{row.totalChildren}</td>
+                    <td className="table-cell">
+                      <div className="flex items-center gap-3">
+                        <div className="flex-1 h-1.5 bg-border-light rounded-full overflow-hidden min-w-[60px]">
+                          <div className={`h-full rounded-full ${pct >= 80 ? 'bg-success' : pct >= 50 ? 'bg-warning' : 'bg-error'}`} style={{ width: `${pct}%` }} />
+                        </div>
+                        <span className={`badge flex-shrink-0 ${pct >= 80 ? 'badge-green' : pct >= 50 ? 'badge-orange' : 'badge-red'}`}>{pct}%</span>
                       </div>
-                      <span className="text-sm font-bold text-text">{pct}%</span>
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

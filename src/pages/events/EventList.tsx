@@ -1,35 +1,31 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Edit2, Trash2 } from 'lucide-react';
+import { Plus, Edit2, Trash2, CalendarDays, MapPin, Calendar } from 'lucide-react';
 import apiClient from '../../api/client';
+import Modal from '../../components/ui/Modal';
+import PageHeader from '../../components/ui/PageHeader';
+import EmptyState from '../../components/ui/EmptyState';
 
 const EVENT_TYPES = ['academic', 'cultural', 'holiday', 'sports', 'other'];
+const TYPE_COLORS: Record<string, string> = {
+  academic: 'badge-blue', cultural: 'badge-purple', holiday: 'badge-green', sports: 'badge-orange', other: 'badge-gray',
+};
+const EMPTY = { title: '', description: '', startDate: '', location: '', type: 'academic' };
 
 export default function EventList() {
   const qc = useQueryClient();
-  const [showForm, setShowForm] = useState(false);
+  const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
-  const [form, setForm] = useState({ title: '', description: '', startDate: '', location: '', type: 'academic' });
+  const [form, setForm] = useState({ ...EMPTY });
 
   const { data, isLoading } = useQuery({
     queryKey: ['events'],
-    queryFn: async () => (await apiClient.get('/events')).data.data,
+    queryFn: async () => (await apiClient.get('/events')).data.data ?? [],
   });
 
   const saveMutation = useMutation({
-    mutationFn: async () => {
-      if (editing) {
-        await apiClient.put(`/events/${editing._id}`, form);
-      } else {
-        await apiClient.post('/events', form);
-      }
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['events'] });
-      setShowForm(false);
-      setEditing(null);
-      setForm({ title: '', description: '', startDate: '', location: '', type: 'academic' });
-    },
+    mutationFn: async () => editing ? apiClient.put(`/events/${editing._id}`, form) : apiClient.post('/events', form),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['events'] }); setModal(false); setEditing(null); setForm({ ...EMPTY }); },
   });
 
   const deleteMutation = useMutation({
@@ -37,85 +33,69 @@ export default function EventList() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['events'] }),
   });
 
-  const openEdit = (event: any) => {
-    setEditing(event);
-    setForm({ title: event.title, description: event.description || '', startDate: event.startDate?.slice(0, 10), location: event.location || '', type: event.type });
-    setShowForm(true);
-  };
+  const openEdit = (e: any) => { setEditing(e); setForm({ title: e.title, description: e.description || '', startDate: e.startDate?.slice(0, 10), location: e.location || '', type: e.type }); setModal(true); };
+  const openAdd = () => { setEditing(null); setForm({ ...EMPTY }); setModal(true); };
 
-  const events = data || [];
+  const events: any[] = data || [];
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold text-text">Events</h1>
-          <p className="text-sm text-text-secondary mt-1">Manage school events and activities</p>
-        </div>
-        <button className="btn-primary flex items-center" onClick={() => { setShowForm(true); setEditing(null); }}>
-          <Plus className="w-5 h-5 mr-2" />Add Event
-        </button>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Events"
+        subtitle={`${events.length} event${events.length !== 1 ? 's' : ''} scheduled`}
+        action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Event</button>}
+      />
 
-      {showForm && (
-        <div className="card border border-border-light">
-          <h2 className="text-lg font-bold text-text mb-4">{editing ? 'Edit Event' : 'New Event'}</h2>
-          <div className="grid grid-cols-2 gap-4">
-            <div className="col-span-2">
-              <label className="label">Title</label>
-              <input className="input-field" value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Event title" />
+      {isLoading ? (
+        <div className="flex items-center justify-center py-24"><div className="w-7 h-7 border-2 border-primary/20 border-t-primary rounded-full animate-spin" /></div>
+      ) : events.length === 0 ? (
+        <EmptyState icon={CalendarDays} title="No events scheduled" description="Add upcoming events, holidays, and activities." action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Event</button>} />
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {events.map((event: any) => (
+            <div key={event._id} className="card hover:shadow-medium transition-shadow duration-200 group">
+              <div className="flex items-center justify-between mb-3">
+                <span className={`badge ${TYPE_COLORS[event.type] ?? 'badge-gray'} capitalize`}>{event.type}</span>
+                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(event)}><Edit2 className="w-3.5 h-3.5" /></button>
+                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this event?')) deleteMutation.mutate(event._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                </div>
+              </div>
+              <h3 className="font-bold text-text mb-1.5">{event.title}</h3>
+              {event.description && <p className="text-xs text-text-secondary mb-3 line-clamp-2">{event.description}</p>}
+              <div className="flex flex-col gap-1 mt-auto pt-3 border-t border-border-light">
+                <div className="flex items-center gap-2 text-xs text-text-secondary">
+                  <Calendar className="w-3.5 h-3.5 text-text-light flex-shrink-0" />
+                  {new Date(event.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                </div>
+                {event.location && (
+                  <div className="flex items-center gap-2 text-xs text-text-secondary">
+                    <MapPin className="w-3.5 h-3.5 text-text-light flex-shrink-0" />{event.location}
+                  </div>
+                )}
+              </div>
             </div>
-            <div>
-              <label className="label">Date</label>
-              <input className="input-field" type="date" value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-            </div>
-            <div>
-              <label className="label">Type</label>
-              <select className="input-field" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                {EVENT_TYPES.map((t) => <option key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Location</label>
-              <input className="input-field" value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} placeholder="School hall, Ground..." />
-            </div>
-            <div>
-              <label className="label">Description</label>
-              <input className="input-field" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Brief description" />
-            </div>
-          </div>
-          <div className="flex gap-3 mt-4">
-            <button className="btn-primary" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-              {saveMutation.isPending ? 'Saving...' : 'Save'}
-            </button>
-            <button className="btn-outline" onClick={() => setShowForm(false)}>Cancel</button>
-          </div>
+          ))}
         </div>
       )}
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {isLoading ? (
-          <p className="col-span-3 text-center py-8 text-text-secondary">Loading...</p>
-        ) : events.length === 0 ? (
-          <p className="col-span-3 text-center py-8 text-text-secondary">No events scheduled.</p>
-        ) : events.map((event: any) => (
-          <div key={event._id} className="card border border-border-light hover:shadow-medium transition-shadow">
-            <div className="flex justify-between items-start mb-3">
-              <span className="px-2.5 py-1 rounded-full text-xs font-medium bg-primary-bg text-primary-dark capitalize">{event.type}</span>
-              <div className="flex gap-1">
-                <button className="p-1 text-text-light hover:text-primary" onClick={() => openEdit(event)}><Edit2 className="w-4 h-4" /></button>
-                <button className="p-1 text-text-light hover:text-error" onClick={() => deleteMutation.mutate(event._id)}><Trash2 className="w-4 h-4" /></button>
-              </div>
-            </div>
-            <h3 className="font-bold text-text text-lg mb-1">{event.title}</h3>
-            {event.description && <p className="text-sm text-text-secondary mb-3 line-clamp-2">{event.description}</p>}
-            <div className="flex items-center gap-4 text-xs text-text-secondary mt-2">
-              <span>📅 {new Date(event.startDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
-              {event.location && <span>📍 {event.location}</span>}
+      <Modal open={modal} onClose={() => { setModal(false); setEditing(null); }} title={editing ? 'Edit Event' : 'New Event'}
+        footer={<div className="flex gap-3"><button className="btn-outline flex-1" onClick={() => setModal(false)}>Cancel</button><button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving…' : 'Save'}</button></div>}
+      >
+        <div className="space-y-4">
+          <div><label className="label">Title</label><input className="input-field" value={form.title} onChange={e => setForm(p => ({ ...p, title: e.target.value }))} placeholder="Event title" /></div>
+          <div className="grid grid-cols-2 gap-4">
+            <div><label className="label">Date</label><input className="input-field" type="date" value={form.startDate} onChange={e => setForm(p => ({ ...p, startDate: e.target.value }))} /></div>
+            <div><label className="label">Type</label>
+              <select className="select-field" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
+                {EVENT_TYPES.map(t => <option key={t} value={t}>{t[0].toUpperCase() + t.slice(1)}</option>)}
+              </select>
             </div>
           </div>
-        ))}
-      </div>
+          <div><label className="label">Location</label><input className="input-field" value={form.location} onChange={e => setForm(p => ({ ...p, location: e.target.value }))} placeholder="School hall, Ground…" /></div>
+          <div><label className="label">Description</label><textarea className="input-field resize-none" rows={3} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description…" /></div>
+        </div>
+      </Modal>
     </div>
   );
 }

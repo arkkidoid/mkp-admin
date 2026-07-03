@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, BookOpen } from 'lucide-react';
 import apiClient from '../api/client';
+import Modal from '../components/ui/Modal';
+import PageHeader from '../components/ui/PageHeader';
+import SearchInput from '../components/ui/SearchInput';
+import EmptyState from '../components/ui/EmptyState';
 
 const EMPTY = { name: '', dateOfBirth: '', gender: 'male', class: 'Beginner', section: 'ROB', parentId: '', batchId: '', bloodGroup: '', admissionNumber: '' };
 
@@ -16,16 +20,14 @@ export default function Children() {
     queryKey: ['adminChildren'],
     queryFn: async () => (await apiClient.get('/admin/children')).data.data ?? [],
   });
+  const { data: parents = [] } = useQuery({ queryKey: ['adminParents'], queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [] });
+  const { data: batches = [] } = useQuery({ queryKey: ['adminBatches'], queryFn: async () => (await apiClient.get('/admin/batches')).data.data ?? [] });
 
-  // API returns: { _id, name, dateOfBirth, class, section, admissionNumber, parent: {_id,name,phone}, batch: {_id,name} }
-  const filtered = (children as any[]).filter((c) =>
+  const filtered = (children as any[]).filter(c =>
     (c.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (c.admissionNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (c.section ?? '').toLowerCase().includes(search.toLowerCase())
   );
-
-  const { data: parents = [] } = useQuery({ queryKey: ['adminParents'], queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [] });
-  const { data: batches = [] } = useQuery({ queryKey: ['adminBatches'], queryFn: async () => (await apiClient.get('/admin/batches')).data.data ?? [] });
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
@@ -34,6 +36,7 @@ export default function Children() {
     setModal({ open: true, mode: 'edit', item: c });
   };
   const close = () => setModal({ open: false, mode: 'add' });
+  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -47,61 +50,64 @@ export default function Children() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/admin/children/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminChildren'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
   });
 
-  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm((p) => ({ ...p, [k]: e.target.value }));
-
   return (
-    <div className="max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-text">Students</h1>
-          <p className="text-sm text-text-secondary mt-0.5">{(children as any[]).length} enrolled students</p>
-        </div>
-        <button className="btn-primary flex items-center self-start sm:self-auto" onClick={openAdd}>
-          <Plus className="w-4 h-4 mr-2" />Enroll Student
-        </button>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Students"
+        subtitle={`${(children as any[]).length} enrolled students`}
+        action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Enroll Student</button>}
+      />
 
-      <div className="card flex-1 flex flex-col min-h-0 !p-3 md:!p-6">
-        <div className="relative w-full sm:w-72 mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-          <input className="input-field pl-9 py-2" placeholder="Search by name, ID or course..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="card !p-0 overflow-hidden">
+        <div className="p-4 border-b border-border-light">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by name, admission no, or course…" className="w-full sm:w-80" />
         </div>
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left min-w-[680px]">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>{['Student','Admission No','Level / Course','Batch','Parent','Status',''].map((h) => (
-                <th key={h} className="py-3 px-4 text-xs font-semibold text-text-secondary uppercase tracking-wide border-b border-border-light">{h}</th>
-              ))}</tr>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[680px]">
+            <thead className="bg-background border-b border-border-light">
+              <tr>
+                {['Student', 'Admission No', 'Level / Course', 'Batch', 'Parent', 'Status', ''].map(h => (
+                  <th key={h} className="table-header">{h}</th>
+                ))}
+              </tr>
             </thead>
-            <tbody className="divide-y divide-border-light">
-              {isLoading ? <tr><td colSpan={7} className="text-center py-10 text-text-secondary">Loading...</td></tr>
-              : filtered.length === 0 ? <tr><td colSpan={7} className="text-center py-10 text-text-secondary">No students found.</td></tr>
-              : filtered.map((c: any) => (
-                <tr key={c._id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4">
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={7} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={7}>
+                  <EmptyState icon={BookOpen} title="No students found" description={search ? 'Try a different search.' : 'Enroll your first student to get started.'} action={!search ? <button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Enroll Student</button> : undefined} />
+                </td></tr>
+              ) : filtered.map((c: any) => (
+                <tr key={c._id} className="border-b border-border-light last:border-0 hover:bg-background/60 transition-colors">
+                  <td className="table-cell">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-blue-100 text-accent-blue font-bold flex items-center justify-center text-sm flex-shrink-0">{(c.name?.[0] ?? '?').toUpperCase()}</div>
+                      <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-blue-700 flex-shrink-0">
+                        {(c.name?.[0] ?? '?').toUpperCase()}
+                      </div>
                       <div>
-                        <p className="font-medium text-text">{c.name}</p>
-                        <p className="text-xs text-text-secondary">{new Date(c.dateOfBirth).toLocaleDateString('en-IN')}</p>
+                        <p className="font-semibold text-text text-sm">{c.name}</p>
+                        <p className="text-xs text-text-light">{c.gender ?? '—'}</p>
                       </div>
                     </div>
                   </td>
-                  <td className="py-3 px-4 font-mono text-sm text-text-secondary">{c.admissionNumber ?? '—'}</td>
-                  <td className="py-3 px-4">
-                    <p className="text-sm font-medium text-text">{c.class}</p>
-                    <p className="text-xs text-text-secondary">{c.section}</p>
+                  <td className="table-cell font-mono text-xs text-text-secondary">{c.admissionNumber ?? '—'}</td>
+                  <td className="table-cell">
+                    <span className="badge badge-blue">{c.class ?? '—'} {c.section ? `· ${c.section}` : ''}</span>
                   </td>
-                  <td className="py-3 px-4 text-sm text-text-secondary">{c.batch?.name ?? 'Unassigned'}</td>
-                  <td className="py-3 px-4 text-sm text-text-secondary">{c.parent?.name ?? '—'}</td>
-                  <td className="py-3 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${c.isActive !== false ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{c.isActive !== false ? 'Active' : 'Archived'}</span></td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-1.5 hover:text-primary text-text-light transition-colors" onClick={() => openEdit(c)}><Edit2 className="w-4 h-4" /></button>
-                      <button className="p-1.5 hover:text-error text-text-light transition-colors" onClick={() => { if (confirm('Permanently delete this student?')) deleteMutation.mutate(c._id); }}><Trash2 className="w-4 h-4" /></button>
+                  <td className="table-cell text-sm text-text-secondary">{c.batch?.name ?? '—'}</td>
+                  <td className="table-cell text-sm text-text-secondary">{c.parent?.name ?? '—'}</td>
+                  <td className="table-cell">
+                    <span className="badge badge-green">Active</span>
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(c)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Remove this student?')) deleteMutation.mutate(c._id); }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -111,50 +117,70 @@ export default function Children() {
         </div>
       </div>
 
-      {modal.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4">
-          <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-medium w-full sm:max-w-lg max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border-light sticky top-0 bg-surface">
-              <h2 className="text-lg font-bold text-text">{modal.mode === 'add' ? 'Enroll Student' : 'Edit Student'}</h2>
-              <button onClick={close}><X className="w-5 h-5 text-text-light" /></button>
-            </div>
-            <div className="p-4 md:p-6 grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2"><label className="label">Full Name</label><input className="input-field" value={form.name} onChange={f('name')} placeholder="Student full name" /></div>
-              <div><label className="label">Date of Birth</label><input className="input-field" type="date" value={form.dateOfBirth} onChange={f('dateOfBirth')} /></div>
-              <div><label className="label">Gender</label>
-                <select className="input-field" value={form.gender} onChange={f('gender')}>
-                  <option value="male">Male</option><option value="female">Female</option><option value="other">Other</option>
-                </select>
-              </div>
-              <div><label className="label">Level</label>
-                <select className="input-field" value={form.class} onChange={f('class')}>
-                  {['Beginner','Intermediate','Advanced','Pro'].map((l) => <option key={l} value={l}>{l}</option>)}
-                </select>
-              </div>
-              <div><label className="label">Course Code</label><input className="input-field" value={form.section} onChange={f('section')} placeholder="ROB / CODE / CHESS..." /></div>
-              <div><label className="label">Parent</label>
-                <select className="input-field" value={form.parentId} onChange={f('parentId')}>
-                  <option value="">Select parent</option>
-                  {(parents as any[]).map((p: any) => <option key={p._id} value={p._id}>{p.name} ({p.phone})</option>)}
-                </select>
-              </div>
-              <div><label className="label">Batch</label>
-                <select className="input-field" value={form.batchId} onChange={f('batchId')}>
-                  <option value="">Select batch</option>
-                  {(batches as any[]).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
-                </select>
-              </div>
-              <div><label className="label">Blood Group</label><input className="input-field" value={form.bloodGroup} onChange={f('bloodGroup')} placeholder="A+, B+, O+..." /></div>
-              <div><label className="label">Admission No</label><input className="input-field" value={form.admissionNumber} onChange={f('admissionNumber')} placeholder="ARK-2025-XXX" /></div>
-              {err && <p className="sm:col-span-2 text-error text-sm">{err}</p>}
-            </div>
-            <div className="flex gap-3 p-4 md:p-6 border-t border-border-light">
-              <button className="btn-outline flex-1" onClick={close}>Cancel</button>
-              <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving...' : 'Save'}</button>
-            </div>
+      <Modal
+        open={modal.open}
+        onClose={close}
+        title={modal.mode === 'add' ? 'Enroll Student' : 'Edit Student'}
+        subtitle={modal.mode === 'edit' ? `Editing ${modal.item?.name}` : undefined}
+        footer={
+          <div className="flex gap-3">
+            <button className="btn-outline flex-1" onClick={close}>Cancel</button>
+            <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </button>
           </div>
+        }
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
+            <label className="label">Full Name</label>
+            <input className="input-field" value={form.name} onChange={f('name')} placeholder="Student name" />
+          </div>
+          <div>
+            <label className="label">Date of Birth</label>
+            <input className="input-field" type="date" value={form.dateOfBirth} onChange={f('dateOfBirth')} />
+          </div>
+          <div>
+            <label className="label">Gender</label>
+            <select className="select-field" value={form.gender} onChange={f('gender')}>
+              <option value="male">Male</option>
+              <option value="female">Female</option>
+              <option value="other">Other</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Level / Class</label>
+            <input className="input-field" value={form.class} onChange={f('class')} placeholder="e.g. Beginner" />
+          </div>
+          <div>
+            <label className="label">Course / Section</label>
+            <input className="input-field" value={form.section} onChange={f('section')} placeholder="e.g. ROB" />
+          </div>
+          <div>
+            <label className="label">Admission Number</label>
+            <input className="input-field" value={form.admissionNumber} onChange={f('admissionNumber')} placeholder="Auto-generated if blank" />
+          </div>
+          <div>
+            <label className="label">Blood Group</label>
+            <input className="input-field" value={form.bloodGroup} onChange={f('bloodGroup')} placeholder="e.g. O+" />
+          </div>
+          <div>
+            <label className="label">Parent</label>
+            <select className="select-field" value={form.parentId} onChange={f('parentId')}>
+              <option value="">Select parent</option>
+              {(parents as any[]).map((p: any) => <option key={p._id} value={p._id}>{p.name} — {p.phone}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="label">Batch</label>
+            <select className="select-field" value={form.batchId} onChange={f('batchId')}>
+              <option value="">Select batch</option>
+              {(batches as any[]).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
+            </select>
+          </div>
+          {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }

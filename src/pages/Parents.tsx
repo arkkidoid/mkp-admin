@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, Search, Edit2, Trash2, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, Users } from 'lucide-react';
 import apiClient from '../api/client';
+import Modal from '../components/ui/Modal';
+import PageHeader from '../components/ui/PageHeader';
+import SearchInput from '../components/ui/SearchInput';
+import EmptyState from '../components/ui/EmptyState';
 
 const EMPTY = { name: '', phone: '', email: '', occupation: '', password: '' };
 
@@ -17,8 +21,7 @@ export default function Parents() {
     queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [],
   });
 
-  // API returns flat user: { _id, name, email, phone, isActive, profile: { occupation, children } }
-  const filtered = (parents as any[]).filter((p) =>
+  const filtered = (parents as any[]).filter(p =>
     (p.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (p.phone ?? '').includes(search)
   );
@@ -29,18 +32,15 @@ export default function Parents() {
     setErr('');
     setModal({ open: true, mode: 'edit', item: p });
   };
-  const closeModal = () => setModal({ open: false, mode: 'add' });
+  const close = () => setModal({ open: false, mode: 'add' });
+  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (modal.mode === 'add') {
-        await apiClient.post('/admin/parents', form);
-      } else {
-        const { password, ...rest } = form;
-        await apiClient.put(`/admin/parents/${modal.item._id}`, rest);
-      }
+      if (modal.mode === 'add') await apiClient.post('/admin/parents', form);
+      else { const { password, ...rest } = form; await apiClient.put(`/admin/parents/${modal.item._id}`, rest); }
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminParents'] }); closeModal(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminParents'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.message || 'Save failed'),
   });
 
@@ -50,52 +50,60 @@ export default function Parents() {
     onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
   });
 
-  const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((p) => ({ ...p, [k]: e.target.value }));
-
   return (
-    <div className="max-w-7xl mx-auto h-full flex flex-col">
-      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-3 mb-4">
-        <div>
-          <h1 className="text-xl md:text-2xl font-bold text-text">Parents</h1>
-          <p className="text-sm text-text-secondary mt-0.5">{(parents as any[]).length} registered parents</p>
-        </div>
-        <button className="btn-primary flex items-center self-start sm:self-auto" onClick={openAdd}>
-          <Plus className="w-4 h-4 mr-2" />Add Parent
-        </button>
-      </div>
+    <div className="page-container">
+      <PageHeader
+        title="Parents"
+        subtitle={`${(parents as any[]).length} registered parents`}
+        action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Parent</button>}
+      />
 
-      <div className="card flex-1 flex flex-col min-h-0 !p-3 md:!p-6">
-        <div className="relative w-full sm:w-72 mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-text-light" />
-          <input className="input-field pl-9 py-2" placeholder="Search by name or phone..." value={search} onChange={(e) => setSearch(e.target.value)} />
+      <div className="card !p-0 overflow-hidden">
+        <div className="p-4 border-b border-border-light">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by name or phone…" className="w-full sm:w-72" />
         </div>
-        <div className="flex-1 overflow-x-auto">
-          <table className="w-full text-left min-w-[560px]">
-            <thead className="bg-gray-50 sticky top-0">
-              <tr>{['Name','Contact','Occupation','Children','Status',''].map((h) => (
-                <th key={h} className="py-3 px-4 text-xs font-semibold text-text-secondary uppercase tracking-wide border-b border-border-light">{h}</th>
-              ))}</tr>
+
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[560px]">
+            <thead className="bg-background border-b border-border-light">
+              <tr>
+                {['Parent', 'Contact', 'Occupation', 'Children', 'Status', ''].map(h => (
+                  <th key={h} className="table-header">{h}</th>
+                ))}
+              </tr>
             </thead>
-            <tbody className="divide-y divide-border-light">
-              {isLoading ? <tr><td colSpan={6} className="text-center py-10 text-text-secondary">Loading...</td></tr>
-              : filtered.length === 0 ? <tr><td colSpan={6} className="text-center py-10 text-text-secondary">No parents found.</td></tr>
-              : filtered.map((p: any) => (
-                <tr key={p._id} className="hover:bg-gray-50">
-                  <td className="py-3 px-4">
+            <tbody>
+              {isLoading ? (
+                <tr><td colSpan={6} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
+              ) : filtered.length === 0 ? (
+                <tr><td colSpan={6}>
+                  <EmptyState icon={Users} title="No parents found" description={search ? 'Try a different search.' : 'Add your first parent to get started.'} action={!search ? <button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Parent</button> : undefined} />
+                </td></tr>
+              ) : filtered.map((p: any) => (
+                <tr key={p._id} className="border-b border-border-light last:border-0 hover:bg-background/60 transition-colors">
+                  <td className="table-cell">
                     <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-primary-bg text-primary-dark font-bold flex items-center justify-center text-sm flex-shrink-0">{(p.name?.[0] ?? '?').toUpperCase()}</div>
-                      <span className="font-medium text-text">{p.name}</span>
+                      <div className="w-8 h-8 rounded-full bg-primary-bg flex items-center justify-center text-xs font-bold text-primary-dark flex-shrink-0">
+                        {(p.name?.[0] ?? '?').toUpperCase()}
+                      </div>
+                      <p className="font-semibold text-text text-sm">{p.name}</p>
                     </div>
                   </td>
-                  <td className="py-3 px-4"><div className="text-sm text-text">{p.phone}</div><div className="text-xs text-text-secondary">{p.email}</div></td>
-                  <td className="py-3 px-4 text-sm text-text-secondary">{p.profile?.occupation || '—'}</td>
-                  <td className="py-3 px-4"><span className="px-2 py-0.5 bg-blue-50 text-accent-blue text-xs font-bold rounded-full">{p.profile?.children?.length ?? 0}</span></td>
-                  <td className="py-3 px-4"><span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${p.isActive ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>{p.isActive ? 'Active' : 'Inactive'}</span></td>
-                  <td className="py-3 px-4 text-right">
-                    <div className="flex justify-end gap-2">
-                      <button className="p-1.5 hover:text-primary text-text-light transition-colors" onClick={() => openEdit(p)}><Edit2 className="w-4 h-4" /></button>
-                      <button className="p-1.5 hover:text-error text-text-light transition-colors" onClick={() => { if (confirm('Permanently delete this parent?')) deleteMutation.mutate(p._id); }}><Trash2 className="w-4 h-4" /></button>
+                  <td className="table-cell">
+                    <p className="text-sm text-text">{p.phone}</p>
+                    <p className="text-xs text-text-light">{p.email || '—'}</p>
+                  </td>
+                  <td className="table-cell text-sm text-text-secondary">{p.profile?.occupation || '—'}</td>
+                  <td className="table-cell">
+                    <span className="badge badge-blue">{p.profile?.children?.length ?? 0} kids</span>
+                  </td>
+                  <td className="table-cell">
+                    <span className={p.isActive ? 'badge badge-green' : 'badge badge-red'}>{p.isActive ? 'Active' : 'Inactive'}</span>
+                  </td>
+                  <td className="table-cell">
+                    <div className="flex items-center justify-end gap-1">
+                      <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(p)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this parent?')) deleteMutation.mutate(p._id); }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -105,37 +113,35 @@ export default function Parents() {
         </div>
       </div>
 
-      {modal.open && (
-        <div className="fixed inset-0 bg-black/40 flex items-end sm:items-center justify-center z-50 sm:p-4">
-          <div className="bg-surface rounded-t-2xl sm:rounded-2xl shadow-medium w-full sm:max-w-md max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between p-4 md:p-6 border-b border-border-light sticky top-0 bg-surface">
-              <h2 className="text-lg font-bold text-text">{modal.mode === 'add' ? 'Add Parent' : 'Edit Parent'}</h2>
-              <button onClick={closeModal} className="text-text-light hover:text-text"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-4 md:p-6 space-y-4">
-              {[['Full Name','name','text'],['Phone (10 digits)','phone','tel'],['Email','email','email'],['Occupation','occupation','text']] .map(([label, key, type]) => (
-                <div key={key}>
-                  <label className="label">{label}</label>
-                  <input className="input-field" type={type} value={(form as any)[key]} onChange={f(key as any)} placeholder={label} />
-                </div>
-              ))}
-              {modal.mode === 'add' && (
-                <div>
-                  <label className="label">Password (optional)</label>
-                  <input className="input-field" type="password" value={form.password} onChange={f('password')} placeholder="Leave blank to auto-generate" />
-                </div>
-              )}
-              {err && <p className="text-error text-sm">{err}</p>}
-            </div>
-            <div className="flex gap-3 p-6 border-t border-border-light">
-              <button className="btn-outline flex-1" onClick={closeModal}>Cancel</button>
-              <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
-                {saveMutation.isPending ? 'Saving...' : 'Save'}
-              </button>
-            </div>
+      <Modal
+        open={modal.open}
+        onClose={close}
+        title={modal.mode === 'add' ? 'Add Parent' : 'Edit Parent'}
+        footer={
+          <div className="flex gap-3">
+            <button className="btn-outline flex-1" onClick={close}>Cancel</button>
+            <button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>
+              {saveMutation.isPending ? 'Saving…' : 'Save'}
+            </button>
           </div>
+        }
+      >
+        <div className="space-y-4">
+          {([['Full Name', 'name', 'text'], ['Phone (10 digits)', 'phone', 'tel'], ['Email', 'email', 'email'], ['Occupation', 'occupation', 'text']] as [string, keyof typeof EMPTY, string][]).map(([label, key, type]) => (
+            <div key={key}>
+              <label className="label">{label}</label>
+              <input className="input-field" type={type} value={form[key]} onChange={f(key)} placeholder={label} />
+            </div>
+          ))}
+          {modal.mode === 'add' && (
+            <div>
+              <label className="label">Password</label>
+              <input className="input-field" type="password" value={form.password} onChange={f('password')} placeholder="Leave blank to auto-generate" />
+            </div>
+          )}
+          {err && <p className="text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
-      )}
+      </Modal>
     </div>
   );
 }
