@@ -44,7 +44,7 @@ export default function Teachers() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (t: any) => {
-    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', password: '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), subjects: (t.profile?.subjects ?? []).map((s: any) => s._id ?? s) });
+    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), subjects: (t.profile?.subjects ?? []).map((s: any) => s._id ?? s) });
     setErr('');
     setModal({ open: true, mode: 'edit', item: t });
   };
