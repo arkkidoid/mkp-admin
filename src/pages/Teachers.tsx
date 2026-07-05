@@ -43,16 +43,20 @@ export default function Teachers() {
     setModal({ open: true, mode: 'edit', item: t });
   };
   const close = () => setModal({ open: false, mode: 'add' });
-  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = k === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
+    setForm(p => ({ ...p, [k]: val }));
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the teacher signs into the app.');
       const payload = { ...form, experience: Number(form.experience) };
       if (modal.mode === 'add') await apiClient.post('/admin/teachers', payload);
       else { const { password, ...rest } = payload; await apiClient.put(`/admin/teachers/${modal.item._id}`, rest); }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminTeachers'] }); close(); },
-    onError: (e: any) => setErr(e?.response?.data?.message || 'Save failed'),
+    onError: (e: any) => setErr(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message || e?.message || 'Save failed'),
   });
 
   const deleteMutation = useMutation({
@@ -143,7 +147,14 @@ export default function Teachers() {
           {FIELDS.map(([label, key, type, span]) => (
             <div key={key} className={span === 2 ? 'sm:col-span-2' : ''}>
               <label className="label">{label}</label>
-              <input className="input-field" type={type} value={form[key]} onChange={f(key)} placeholder={label} />
+              <input
+                className="input-field"
+                type={type}
+                value={form[key]}
+                onChange={f(key)}
+                placeholder={label}
+                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : {})}
+              />
             </div>
           ))}
           {modal.mode === 'add' && (

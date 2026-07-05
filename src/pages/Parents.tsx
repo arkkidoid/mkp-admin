@@ -33,15 +33,19 @@ export default function Parents() {
     setModal({ open: true, mode: 'edit', item: p });
   };
   const close = () => setModal({ open: false, mode: 'add' });
-  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
+  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = k === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
+    setForm(p => ({ ...p, [k]: val }));
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
+      if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the parent signs into the app.');
       if (modal.mode === 'add') await apiClient.post('/admin/parents', form);
       else { const { password, ...rest } = form; await apiClient.put(`/admin/parents/${modal.item._id}`, rest); }
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminParents'] }); close(); },
-    onError: (e: any) => setErr(e?.response?.data?.message || 'Save failed'),
+    onError: (e: any) => setErr(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message || e?.message || 'Save failed'),
   });
 
   const deleteMutation = useMutation({
@@ -130,7 +134,14 @@ export default function Parents() {
           {([['Full Name', 'name', 'text'], ['Phone (10 digits)', 'phone', 'tel'], ['Email', 'email', 'email'], ['Occupation', 'occupation', 'text']] as [string, keyof typeof EMPTY, string][]).map(([label, key, type]) => (
             <div key={key}>
               <label className="label">{label}</label>
-              <input className="input-field" type={type} value={form[key]} onChange={f(key)} placeholder={label} />
+              <input
+                className="input-field"
+                type={type}
+                value={form[key]}
+                onChange={f(key)}
+                placeholder={label}
+                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : {})}
+              />
             </div>
           ))}
           {modal.mode === 'add' && (
