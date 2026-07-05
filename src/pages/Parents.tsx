@@ -7,7 +7,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', occupation: '', password: '' };
+const EMPTY = { name: '', phone: '', email: '', occupation: '' };
 
 export default function Parents() {
   const qc = useQueryClient();
@@ -28,7 +28,7 @@ export default function Parents() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (p: any) => {
-    setForm({ name: p.name, phone: p.phone, email: p.email ?? '', occupation: p.profile?.occupation ?? '', password: '' });
+    setForm({ name: p.name, phone: p.phone, email: p.email ?? '', occupation: p.profile?.occupation ?? '' });
     setErr('');
     setModal({ open: true, mode: 'edit', item: p });
   };
@@ -42,7 +42,7 @@ export default function Parents() {
     mutationFn: async () => {
       if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the parent signs into the app.');
       if (modal.mode === 'add') await apiClient.post('/admin/parents', form);
-      else { const { password, ...rest } = form; await apiClient.put(`/admin/parents/${modal.item._id}`, rest); }
+      else await apiClient.put(`/admin/parents/${modal.item._id}`, form);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminParents'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message || e?.message || 'Save failed'),
@@ -144,12 +144,6 @@ export default function Parents() {
               />
             </div>
           ))}
-          {modal.mode === 'add' && (
-            <div>
-              <label className="label">Password</label>
-              <input className="input-field" type="password" value={form.password} onChange={f('password')} placeholder="Leave blank to auto-generate" />
-            </div>
-          )}
           {err && <p className="text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>

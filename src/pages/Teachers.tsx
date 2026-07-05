@@ -7,16 +7,17 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', password: '', employeeId: '', qualification: '', experience: '', specialization: '' };
+const EMPTY = { name: '', phone: '', email: '', employeeId: '', qualification: '', experience: '', subjects: [] as string[] };
 
-const FIELDS: [string, keyof typeof EMPTY, string, number?][] = [
+type TextKey = 'name' | 'phone' | 'email' | 'employeeId' | 'qualification' | 'experience';
+
+const FIELDS: [string, TextKey, string, number?][] = [
   ['Full Name', 'name', 'text'],
   ['Phone', 'phone', 'tel'],
   ['Email', 'email', 'email'],
   ['Employee ID', 'employeeId', 'text'],
   ['Qualification', 'qualification', 'text'],
   ['Experience (years)', 'experience', 'number'],
-  ['Specialization', 'specialization', 'text', 2],
 ];
 
 export default function Teachers() {
@@ -31,6 +32,11 @@ export default function Teachers() {
     queryFn: async () => (await apiClient.get('/admin/teachers')).data.data ?? [],
   });
 
+  const { data: subjects = [] } = useQuery({
+    queryKey: ['adminSubjects'],
+    queryFn: async () => (await apiClient.get('/admin/subjects')).data.data ?? [],
+  });
+
   const filtered = (teachers as any[]).filter(t =>
     (t.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
     (t.profile?.employeeId ?? '').toLowerCase().includes(search.toLowerCase())
@@ -38,22 +44,26 @@ export default function Teachers() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (t: any) => {
-    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', password: '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), specialization: t.profile?.specialization ?? '' });
+    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', password: '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), subjects: (t.profile?.subjects ?? []).map((s: any) => s._id ?? s) });
     setErr('');
     setModal({ open: true, mode: 'edit', item: t });
   };
   const close = () => setModal({ open: false, mode: 'add' });
-  const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const f = (k: TextKey) => (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = k === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
     setForm(p => ({ ...p, [k]: val }));
   };
+  const toggleSubject = (id: string) => setForm(p => ({
+    ...p,
+    subjects: p.subjects.includes(id) ? p.subjects.filter(s => s !== id) : [...p.subjects, id],
+  }));
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the teacher signs into the app.');
       const payload = { ...form, experience: Number(form.experience) };
       if (modal.mode === 'add') await apiClient.post('/admin/teachers', payload);
-      else { const { password, ...rest } = payload; await apiClient.put(`/admin/teachers/${modal.item._id}`, rest); }
+      else await apiClient.put(`/admin/teachers/${modal.item._id}`, payload);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminTeachers'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message || e?.message || 'Save failed'),
@@ -82,7 +92,7 @@ export default function Teachers() {
           <table className="w-full min-w-[640px]">
             <thead className="bg-background border-b border-border-light">
               <tr>
-                {['Teacher', 'Emp ID', 'Specialization', 'Batches', 'Experience', 'Status', ''].map(h => (
+                {['Teacher', 'Emp ID', 'Courses', 'Batches', 'Experience', 'Status', ''].map(h => (
                   <th key={h} className="table-header">{h}</th>
                 ))}
               </tr>
@@ -108,7 +118,15 @@ export default function Teachers() {
                     </div>
                   </td>
                   <td className="table-cell font-mono text-xs text-text-secondary">{t.profile?.employeeId ?? '—'}</td>
-                  <td className="table-cell text-sm text-text-secondary max-w-40 truncate">{t.profile?.specialization ?? '—'}</td>
+                  <td className="table-cell">
+                    {(t.profile?.subjects ?? []).length > 0 ? (
+                      <div className="flex flex-wrap gap-1 max-w-52">
+                        {t.profile.subjects.map((s: any) => (
+                          <span key={s._id} className="badge" style={{ backgroundColor: (s.color ?? '#F97316') + '1A', color: s.color ?? '#F97316' }}>{s.name}</span>
+                        ))}
+                      </div>
+                    ) : <span className="text-sm text-text-light">—</span>}
+                  </td>
                   <td className="table-cell">
                     <span className="badge badge-purple">{t.profile?.batches?.length ?? 0} batches</span>
                   </td>
@@ -157,12 +175,32 @@ export default function Teachers() {
               />
             </div>
           ))}
-          {modal.mode === 'add' && (
-            <div className="sm:col-span-2">
-              <label className="label">Password</label>
-              <input className="input-field" type="password" value={form.password} onChange={f('password')} placeholder="Temporary password" />
-            </div>
-          )}
+
+          <div className="sm:col-span-2">
+            <label className="label">Specialization (Courses)</label>
+            {(subjects as any[]).length === 0 ? (
+              <p className="text-xs text-text-light bg-background border border-border-light rounded-lg px-3 py-2.5">No courses yet — add courses first, then assign them here.</p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {(subjects as any[]).map((s: any) => {
+                  const on = form.subjects.includes(s._id);
+                  return (
+                    <button
+                      key={s._id}
+                      type="button"
+                      onClick={() => toggleSubject(s._id)}
+                      className={`px-3 py-1.5 rounded-lg text-xs font-semibold border transition-all ${on ? 'text-white border-transparent' : 'border-border text-text-secondary hover:border-primary/50'}`}
+                      style={on ? { backgroundColor: s.color ?? '#F97316' } : undefined}
+                    >
+                      {s.name}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <p className="text-[11px] text-text-light mt-1.5">Select every course this instructor teaches. Editable anytime.</p>
+          </div>
+
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
