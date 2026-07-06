@@ -8,7 +8,13 @@ import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const EMPTY = { name: '', teacherId: '', subjectId: '', classroom: '', capacity: '20', academicYear: '2025-26', startTime: '09:00', endTime: '11:00', scheduleDays: [] as string[] };
+const EMPTY = { name: '', teacherId: '', subjectId: '', location: '', classroom: '', capacity: '20', academicYear: '2025-26', startTime: '09:00', endTime: '11:00', scheduleDays: [] as string[] };
+
+// Strip a "CODE-" prefix so the edit field shows the bare label (e.g. "ROB-A" → "A")
+const bareLabel = (name: string, code?: string) => {
+  if (code && (name ?? '').toUpperCase().startsWith(code.toUpperCase() + '-')) return name.slice(code.length + 1);
+  return name ?? '';
+};
 
 export default function Batches() {
   const qc = useQueryClient();
@@ -30,7 +36,7 @@ export default function Batches() {
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (b: any) => {
     const s = b.schedule?.[0] ?? {};
-    setForm({ name: b.name, teacherId: b.teacher?._id ?? '', subjectId: b.subject?._id ?? '', classroom: b.classroom ?? '', capacity: String(b.capacity ?? 20), academicYear: b.academicYear ?? '2025-26', startTime: s.startTime ?? '09:00', endTime: s.endTime ?? '11:00', scheduleDays: b.schedule?.map((x: any) => x.day) ?? [] });
+    setForm({ name: bareLabel(b.name, b.subject?.code), teacherId: b.teacher?._id ?? '', subjectId: b.subject?._id ?? '', location: b.location ?? '', classroom: b.classroom ?? '', capacity: String(b.capacity ?? 20), academicYear: b.academicYear ?? '2025-26', startTime: s.startTime ?? '09:00', endTime: s.endTime ?? '11:00', scheduleDays: b.schedule?.map((x: any) => x.day) ?? [] });
     setErr('');
     setModal({ open: true, mode: 'edit', item: b });
   };
@@ -40,7 +46,7 @@ export default function Batches() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: form.name, classroom: form.classroom, capacity: Number(form.capacity), academicYear: form.academicYear, teacherId: form.teacherId, subjectId: form.subjectId, schedule: form.scheduleDays.map(day => ({ day, startTime: form.startTime, endTime: form.endTime })) };
+      const payload = { name: form.name, location: form.location, classroom: form.classroom, capacity: Number(form.capacity), academicYear: form.academicYear, teacherId: form.teacherId, subjectId: form.subjectId, schedule: form.scheduleDays.map(day => ({ day, startTime: form.startTime, endTime: form.endTime })) };
       if (modal.mode === 'add') await apiClient.post('/admin/batches', payload);
       else await apiClient.put(`/admin/batches/${modal.item._id}`, payload);
     },
@@ -53,6 +59,8 @@ export default function Batches() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminBatches'] }),
     onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
   });
+
+  const selectedCode = (subjects as any[]).find((s: any) => s._id === form.subjectId)?.code;
 
   return (
     <div className="page-container">
@@ -69,7 +77,7 @@ export default function Batches() {
         <div className="overflow-x-auto">
           <table className="w-full min-w-[720px]">
             <thead className="bg-background border-b border-border-light">
-              <tr>{['Batch', 'Teacher', 'Course', 'Room', 'Students', 'Schedule', 'Status', ''].map(h => <th key={h} className="table-header">{h}</th>)}</tr>
+              <tr>{['Batch', 'Teacher', 'Course', 'Location', 'Students', 'Schedule', 'Status', ''].map(h => <th key={h} className="table-header">{h}</th>)}</tr>
             </thead>
             <tbody>
               {isLoading ? <tr><td colSpan={8} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
@@ -83,7 +91,10 @@ export default function Batches() {
                       ? <span className="badge" style={{ backgroundColor: (b.subject.color ?? '#888') + '20', color: b.subject.color ?? '#888' }}>{b.subject.name}</span>
                       : <span className="text-text-light text-sm">—</span>}
                   </td>
-                  <td className="table-cell text-sm text-text-secondary">{b.classroom || '—'}</td>
+                  <td className="table-cell">
+                    <p className="text-sm text-text-secondary">{b.location || '—'}</p>
+                    {b.classroom ? <p className="text-xs text-text-light">{b.classroom}</p> : null}
+                  </td>
                   <td className="table-cell text-sm"><span className="font-semibold text-text">{b.children?.length ?? 0}</span><span className="text-text-light">/{b.capacity}</span></td>
                   <td className="table-cell text-xs text-text-secondary">{b.schedule?.map((s: any) => s.day).join(', ') || '—'}</td>
                   <td className="table-cell"><span className={b.isActive !== false ? 'badge badge-green' : 'badge badge-red'}>{b.isActive !== false ? 'Active' : 'Inactive'}</span></td>
@@ -104,7 +115,13 @@ export default function Batches() {
         footer={<div className="flex gap-3"><button className="btn-outline flex-1" onClick={close}>Cancel</button><button className="btn-primary flex-1" onClick={() => saveMutation.mutate()} disabled={saveMutation.isPending}>{saveMutation.isPending ? 'Saving…' : 'Save'}</button></div>}
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div className="sm:col-span-2"><label className="label">Batch Name</label><input className="input-field" value={form.name} onChange={f('name')} placeholder="e.g. Robotics — Weekend" /></div>
+          <div className="sm:col-span-2">
+            <label className="label">Batch Name</label>
+            <input className="input-field uppercase" value={form.name} onChange={f('name')} placeholder="e.g. A, B, C" />
+            {form.name && selectedCode
+              ? <p className="text-[11px] text-text-light mt-1">Saved as <b className="text-text">{selectedCode}-{form.name.toUpperCase()}</b></p>
+              : <p className="text-[11px] text-text-light mt-1">Short label — the course code is prefixed automatically (e.g. <b>ROB-A</b>). Pick the course below first.</p>}
+          </div>
           <div><label className="label">Teacher</label>
             <select className="select-field" value={form.teacherId} onChange={f('teacherId')}>
               <option value="">Select teacher</option>
@@ -117,8 +134,9 @@ export default function Batches() {
               {(subjects as any[]).map((s: any) => <option key={s._id} value={s._id}>{s.name}</option>)}
             </select>
           </div>
-          <div><label className="label">Classroom</label><input className="input-field" value={form.classroom} onChange={f('classroom')} placeholder="Lab 1, Room B2…" /></div>
+          <div><label className="label">Classroom / Room</label><input className="input-field" value={form.classroom} onChange={f('classroom')} placeholder="Lab 1, Room B2…" /></div>
           <div><label className="label">Capacity</label><input className="input-field" type="number" value={form.capacity} onChange={f('capacity')} /></div>
+          <div className="sm:col-span-2"><label className="label">Location / Place</label><input className="input-field" value={form.location} onChange={f('location')} placeholder="e.g. Sector 15 Centre, Community Hall…" /><p className="text-[11px] text-text-light mt-1">Where this batch is held — the instructor sees this to know where to go.</p></div>
           <div><label className="label">Start Time</label><input className="input-field" type="time" value={form.startTime} onChange={f('startTime')} /></div>
           <div><label className="label">End Time</label><input className="input-field" type="time" value={form.endTime} onChange={f('endTime')} /></div>
           <div className="sm:col-span-2">

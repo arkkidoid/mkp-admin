@@ -7,7 +7,7 @@ import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
 
 const COLORS = ['#E53935','#1E88E5','#43A047','#FB8C00','#8E24AA','#00ACC1','#F4511E','#FFB300','#6D4C41','#546E7A'];
-const EMPTY = { name: '', code: '', color: COLORS[0], icon: 'book', description: '' };
+const EMPTY = { name: '', code: '', monthlyFee: '', admissionFee: '', duration: '', ageGroup: '', level: '', color: COLORS[0], icon: 'book', description: '' };
 
 export default function CourseList() {
   const qc = useQueryClient();
@@ -22,7 +22,12 @@ export default function CourseList() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
-    setForm({ name: c.name, code: c.code, color: c.color ?? COLORS[0], icon: c.icon ?? 'book', description: c.description ?? '' });
+    setForm({
+      name: c.name, code: c.code,
+      monthlyFee: String(c.monthlyFee ?? ''), admissionFee: String(c.admissionFee ?? ''),
+      duration: c.duration ?? '', ageGroup: c.ageGroup ?? '', level: c.level ?? '',
+      color: c.color ?? COLORS[0], icon: c.icon ?? 'book', description: c.description ?? '',
+    });
     setErr('');
     setModal({ open: true, mode: 'edit', item: c });
   };
@@ -31,8 +36,9 @@ export default function CourseList() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (modal.mode === 'add') await apiClient.post('/admin/subjects', form);
-      else await apiClient.put(`/admin/subjects/${modal.item._id}`, form);
+      const payload = { ...form, monthlyFee: Number(form.monthlyFee) || 0, admissionFee: Number(form.admissionFee) || 0 };
+      if (modal.mode === 'add') await apiClient.post('/admin/subjects', payload);
+      else await apiClient.put(`/admin/subjects/${modal.item._id}`, payload);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminSubjects'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.message || 'Save failed'),
@@ -78,9 +84,14 @@ export default function CourseList() {
                 </div>
               </div>
               {c.description && <p className="text-xs text-text-secondary line-clamp-2 mb-3">{c.description}</p>}
-              <div className="flex items-center gap-2">
-                <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? '#888' }} />
-                <span className="text-xs text-text-light">{c.isActive !== false ? 'Active' : 'Inactive'}</span>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: c.color ?? '#888' }} />
+                  <span className="text-xs text-text-light">{c.isActive !== false ? 'Active' : 'Inactive'}</span>
+                </div>
+                {(c.monthlyFee ?? 0) > 0 && (
+                  <span className="text-xs font-bold text-text">₹{Number(c.monthlyFee).toLocaleString('en-IN')}<span className="font-medium text-text-light">/mo</span></span>
+                )}
               </div>
             </div>
           ))}
@@ -102,13 +113,29 @@ export default function CourseList() {
           </div>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="label">Code</label>
-              <input className="input-field" value={form.code} onChange={f('code')} placeholder="ROB, CHESS…" />
+              <label className="label">Course Code</label>
+              <input className="input-field uppercase" value={form.code} onChange={f('code')} placeholder="CR, ROB, CHESS…" />
             </div>
             <div>
               <label className="label">Icon</label>
               <input className="input-field" value={form.icon} onChange={f('icon')} placeholder="book, code…" />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="label">Monthly Fee (₹)</label>
+              <input className="input-field" type="number" value={form.monthlyFee} onChange={f('monthlyFee')} placeholder="0" />
+            </div>
+            <div>
+              <label className="label">Admission Fee (₹)</label>
+              <input className="input-field" type="number" value={form.admissionFee} onChange={f('admissionFee')} placeholder="0" />
+            </div>
+          </div>
+          <p className="text-[11px] text-text-light -mt-2">Fees are auto-assigned to a student's parent the moment they're enrolled in this course.</p>
+          <div className="grid grid-cols-3 gap-4">
+            <div><label className="label">Duration</label><input className="input-field" value={form.duration} onChange={f('duration')} placeholder="3 months" /></div>
+            <div><label className="label">Age Group</label><input className="input-field" value={form.ageGroup} onChange={f('ageGroup')} placeholder="5–12 yrs" /></div>
+            <div><label className="label">Level</label><input className="input-field" value={form.level} onChange={f('level')} placeholder="Beginner" /></div>
           </div>
           <div>
             <label className="label">Brand Color</label>

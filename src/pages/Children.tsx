@@ -7,7 +7,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', dateOfBirth: '', gender: 'male', class: 'Beginner', section: 'ROB', parentId: '', batchId: '', bloodGroup: '', admissionNumber: '' };
+const EMPTY = { name: '', dateOfBirth: '', gender: 'male', parentId: '', batchId: '', bloodGroup: '', admissionNumber: '' };
 
 export default function Children() {
   const qc = useQueryClient();
@@ -31,7 +31,7 @@ export default function Children() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
-    setForm({ name: c.name, dateOfBirth: c.dateOfBirth?.slice(0, 10) ?? '', gender: c.gender ?? 'male', class: c.class ?? 'Beginner', section: c.section ?? '', parentId: c.parent?._id ?? '', batchId: c.batch?._id ?? '', bloodGroup: c.bloodGroup ?? '', admissionNumber: c.admissionNumber ?? '' });
+    setForm({ name: c.name, dateOfBirth: c.dateOfBirth?.slice(0, 10) ?? '', gender: c.gender ?? 'male', parentId: c.parent?._id ?? '', batchId: c.batch?._id ?? '', bloodGroup: c.bloodGroup ?? '', admissionNumber: c.admissionNumber ?? '' });
     setErr('');
     setModal({ open: true, mode: 'edit', item: c });
   };
@@ -70,7 +70,7 @@ export default function Children() {
           <table className="w-full min-w-[680px]">
             <thead className="bg-background border-b border-border-light">
               <tr>
-                {['Student', 'Admission No', 'Level / Course', 'Batch', 'Parent', 'Status', ''].map(h => (
+                {['Student', 'Admission No', 'Class', 'Batch', 'Parent', 'Status', ''].map(h => (
                   <th key={h} className="table-header">{h}</th>
                 ))}
               </tr>
@@ -97,7 +97,7 @@ export default function Children() {
                   </td>
                   <td className="table-cell font-mono text-xs text-text-secondary">{c.admissionNumber ?? '—'}</td>
                   <td className="table-cell">
-                    <span className="badge badge-blue">{c.class ?? '—'} {c.section ? `· ${c.section}` : ''}</span>
+                    <span className="badge badge-blue">{c.class || '—'}</span>
                   </td>
                   <td className="table-cell text-sm text-text-secondary">{c.batch?.name ?? '—'}</td>
                   <td className="table-cell text-sm text-text-secondary">{c.parent?.name ?? '—'}</td>
@@ -149,14 +149,6 @@ export default function Children() {
             </select>
           </div>
           <div>
-            <label className="label">Level / Class</label>
-            <input className="input-field" value={form.class} onChange={f('class')} placeholder="e.g. Beginner" />
-          </div>
-          <div>
-            <label className="label">Course / Section</label>
-            <input className="input-field" value={form.section} onChange={f('section')} placeholder="e.g. ROB" />
-          </div>
-          <div>
             <label className="label">Admission Number</label>
             <input className="input-field" value={form.admissionNumber} onChange={f('admissionNumber')} placeholder="Auto-generated if blank" />
           </div>
@@ -178,6 +170,7 @@ export default function Children() {
               {(batches as any[]).map((b: any) => <option key={b._id} value={b._id}>{b.name}</option>)}
             </select>
           </div>
+          <p className="sm:col-span-2 text-[11px] text-text-light -mt-1">The batch (e.g. <b>ROB-A</b>) becomes the student's class, and the course fees are auto-assigned.</p>
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
