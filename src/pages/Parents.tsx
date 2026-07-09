@@ -7,7 +7,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', occupation: '' };
+const EMPTY = { name: '', phone: '', email: '', occupation: '', accessCode: '' };
 
 export default function Parents() {
   const qc = useQueryClient();
@@ -28,21 +28,29 @@ export default function Parents() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (p: any) => {
-    setForm({ name: p.name, phone: p.phone, email: p.email ?? '', occupation: p.profile?.occupation ?? '' });
+    setForm({ name: p.name, phone: p.phone, email: p.email ?? '', occupation: p.profile?.occupation ?? '', accessCode: '' });
     setErr('');
     setModal({ open: true, mode: 'edit', item: p });
   };
   const close = () => setModal({ open: false, mode: 'add' });
   const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = k === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
-    setForm(p => ({ ...p, [k]: val }));
+    const val = (k === 'phone' || k === 'accessCode') ? e.target.value.replace(/\D/g, '') : e.target.value;
+    if (k === 'phone') setForm(p => ({ ...p, [k]: val.slice(0, 10) }));
+    else if (k === 'accessCode') setForm(p => ({ ...p, [k]: val.slice(0, 6) }));
+    else setForm(p => ({ ...p, [k]: val }));
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the parent signs into the app.');
-      if (modal.mode === 'add') await apiClient.post('/admin/parents', form);
-      else await apiClient.put(`/admin/parents/${modal.item._id}`, form);
+      if (modal.mode === 'add' && form.accessCode.length !== 6) throw new Error('A 6-digit access code is required for new parents.');
+      if (modal.mode === 'edit' && form.accessCode && form.accessCode.length !== 6) throw new Error('Access code must be exactly 6 digits.');
+      
+      const payload = { ...form };
+      if (modal.mode === 'edit' && !payload.accessCode) delete (payload as any).accessCode;
+      
+      if (modal.mode === 'add') await apiClient.post('/admin/parents', payload);
+      else await apiClient.put(`/admin/parents/${modal.item._id}`, payload);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminParents'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.errors?.[0]?.message || e?.response?.data?.message || e?.message || 'Save failed'),
@@ -131,7 +139,7 @@ export default function Parents() {
         }
       >
         <div className="space-y-4">
-          {([['Full Name', 'name', 'text'], ['Phone (10 digits)', 'phone', 'tel'], ['Email', 'email', 'email'], ['Occupation', 'occupation', 'text']] as [string, keyof typeof EMPTY, string][]).map(([label, key, type]) => (
+          {([['Full Name', 'name', 'text'], ['Phone (10 digits)', 'phone', 'tel'], ['Email', 'email', 'email'], ['Occupation', 'occupation', 'text'], ['6-Digit Access Code (Leave blank to keep current)', 'accessCode', 'text']] as [string, keyof typeof EMPTY, string][]).map(([label, key, type]) => (
             <div key={key}>
               <label className="label">{label}</label>
               <input
@@ -140,7 +148,7 @@ export default function Parents() {
                 value={form[key]}
                 onChange={f(key)}
                 placeholder={label}
-                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : {})}
+                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : key === 'accessCode' ? { maxLength: 6, inputMode: 'numeric' as const } : {})}
               />
             </div>
           ))}

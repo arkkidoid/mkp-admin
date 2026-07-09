@@ -7,9 +7,9 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', employeeId: '', qualification: '', experience: '', subjects: [] as string[] };
+const EMPTY = { name: '', phone: '', email: '', employeeId: '', qualification: '', experience: '', subjects: [] as string[], accessCode: '' };
 
-type TextKey = 'name' | 'phone' | 'email' | 'employeeId' | 'qualification' | 'experience';
+type TextKey = 'name' | 'phone' | 'email' | 'employeeId' | 'qualification' | 'experience' | 'accessCode';
 
 const FIELDS: [string, TextKey, string, number?][] = [
   ['Full Name', 'name', 'text'],
@@ -18,6 +18,7 @@ const FIELDS: [string, TextKey, string, number?][] = [
   ['Employee ID', 'employeeId', 'text'],
   ['Qualification', 'qualification', 'text'],
   ['Experience (years)', 'experience', 'number'],
+  ['6-Digit Access Code (Leave blank to keep current)', 'accessCode', 'text', 2],
 ];
 
 export default function Teachers() {
@@ -44,14 +45,16 @@ export default function Teachers() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (t: any) => {
-    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), subjects: (t.profile?.subjects ?? []).map((s: any) => s._id ?? s) });
+    setForm({ name: t.name, phone: t.phone, email: t.email ?? '', employeeId: t.profile?.employeeId ?? '', qualification: t.profile?.qualification ?? '', experience: String(t.profile?.experience ?? ''), subjects: (t.profile?.subjects ?? []).map((s: any) => s._id ?? s), accessCode: '' });
     setErr('');
     setModal({ open: true, mode: 'edit', item: t });
   };
   const close = () => setModal({ open: false, mode: 'add' });
   const f = (k: TextKey) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = k === 'phone' ? e.target.value.replace(/\D/g, '').slice(0, 10) : e.target.value;
-    setForm(p => ({ ...p, [k]: val }));
+    const val = (k === 'phone' || k === 'accessCode') ? e.target.value.replace(/\D/g, '') : e.target.value;
+    if (k === 'phone') setForm(p => ({ ...p, [k]: val.slice(0, 10) }));
+    else if (k === 'accessCode') setForm(p => ({ ...p, [k]: val.slice(0, 6) }));
+    else setForm(p => ({ ...p, [k]: val }));
   };
   const toggleSubject = (id: string) => setForm(p => ({
     ...p,
@@ -61,7 +64,12 @@ export default function Teachers() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the teacher signs into the app.');
+      if (modal.mode === 'add' && form.accessCode.length !== 6) throw new Error('A 6-digit access code is required for new teachers.');
+      if (modal.mode === 'edit' && form.accessCode && form.accessCode.length !== 6) throw new Error('Access code must be exactly 6 digits.');
+
       const payload = { ...form, experience: Number(form.experience) };
+      if (modal.mode === 'edit' && !payload.accessCode) delete (payload as any).accessCode;
+
       if (modal.mode === 'add') await apiClient.post('/admin/teachers', payload);
       else await apiClient.put(`/admin/teachers/${modal.item._id}`, payload);
     },
@@ -171,7 +179,7 @@ export default function Teachers() {
                 value={form[key]}
                 onChange={f(key)}
                 placeholder={label}
-                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : {})}
+                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : key === 'accessCode' ? { maxLength: 6, inputMode: 'numeric' as const } : {})}
               />
             </div>
           ))}
