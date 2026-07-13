@@ -3,7 +3,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   LayoutDashboard, Users, GraduationCap, BookOpen, Layers,
   Settings, CalendarDays, Image, Bell, BarChart3, DollarSign,
-  ClipboardList, FileText, ChevronDown, X, CreditCard,
+  ClipboardList, FileText, ChevronDown, X, CreditCard, Inbox,
 } from 'lucide-react';
 
 const NAV_GROUPS = [
@@ -40,6 +40,7 @@ const NAV_GROUPS = [
   {
     label: 'Management',
     items: [
+      { name: 'Enquiries',      path: '/enquiries',     icon: Inbox },
       { name: 'Events',         path: '/events',        icon: CalendarDays },
       { name: 'Gallery',        path: '/gallery',       icon: Image },
       { name: 'Notifications',  path: '/notifications', icon: Bell },

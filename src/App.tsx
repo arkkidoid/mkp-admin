@@ -16,6 +16,7 @@ import GalleryManagement from './pages/gallery/GalleryManagement';
 import NotificationCenter from './pages/notifications/NotificationCenter';
 import Analytics from './pages/reports/Analytics';
 import CMS from './pages/settings/CMS';
+import EnquiryList from './pages/enquiries/EnquiryList';
 
 function App() {
   return (
@@ -35,6 +36,7 @@ function App() {
         <Route path="/events" element={<EventList />} />
         <Route path="/gallery" element={<GalleryManagement />} />
         <Route path="/notifications" element={<NotificationCenter />} />
+        <Route path="/enquiries" element={<EnquiryList />} />
         <Route path="/reports" element={<Analytics />} />
         <Route path="/settings" element={<CMS />} />
       </Route>

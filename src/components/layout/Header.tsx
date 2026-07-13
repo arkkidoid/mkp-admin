@@ -16,6 +16,7 @@ const ROUTE_LABELS: Record<string, string> = {
   '/events':         'Events',
   '/gallery':        'Gallery',
   '/notifications':  'Notifications',
+  '/enquiries':      'Enquiries',
   '/reports':        'Reports',
   '/settings':       'Settings',
 };
