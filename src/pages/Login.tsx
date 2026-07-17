@@ -100,10 +100,6 @@ export default function Login() {
             </button>
           </form>
         </div>
-
-        <div className="mt-4 p-3 bg-primary-bg rounded-xl border border-primary/20 text-center">
-          <p className="text-xs text-primary-dark font-medium">Default: admin@arkkidoid.com / Admin@123</p>
-        </div>
       </div>
     </div>
   );
