@@ -1,41 +1,77 @@
-import { useState } from 'react';
-import { Save, CheckCircle2, Building2, Bell } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Save, CheckCircle2, Building2, Bell, LayoutTemplate } from 'lucide-react';
 import PageHeader from '../../components/ui/PageHeader';
+import api from '../../api/client';
 
 const EMPTY = {
-  schoolName: 'ARK Kidoid School', address: '', phone: '', email: '',
+  schoolName: 'ARK Kidoid', address: '', phone: '', email: '',
   academicYear: '2025-26', website: '', principalName: '',
+  guestHeroTitle: 'A joyful place to learn & grow',
+  guestHeroBody: 'Explore our courses, facilities and campus life. Robotics, coding, chess & more.',
+  guestAboutText: 'Masti Ki Paathshaala is dedicated to providing an enriching and joyful learning environment for children.'
 };
 
 export default function CMS() {
   const [form, setForm] = useState({ ...EMPTY });
   const [saved, setSaved] = useState(false);
   const [notifications, setNotifications] = useState({ attendance: true, feeReminder: true, assignments: true });
+  const [loading, setLoading] = useState(true);
 
-  const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+  useEffect(() => {
+    api.get('/admin/settings').then(res => {
+      const data = res.data.data;
+      if (data) {
+        setForm(prev => ({ ...prev, ...data }));
+        if (data.notifications) {
+          setNotifications(prev => ({ ...prev, ...data.notifications }));
+        }
+      }
+    }).catch(console.error)
+    .finally(() => setLoading(false));
+  }, []);
+
+  const handleSave = async () => {
+    try {
+      await api.put('/admin/settings', { ...form, notifications });
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (err) {
+      console.error('Failed to save settings', err);
+    }
   };
 
   const field = (label: string, key: keyof typeof form, type = 'text', placeholder = '') => (
     <div key={key}>
       <label className="label">{label}</label>
-      <input
-        className="input-field"
-        type={type}
-        placeholder={placeholder || label}
-        value={form[key]}
-        onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
-      />
+      {type === 'textarea' ? (
+        <textarea
+          className="input-field min-h-[80px]"
+          placeholder={placeholder || label}
+          value={form[key]}
+          onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        />
+      ) : (
+        <input
+          className="input-field"
+          type={type}
+          placeholder={placeholder || label}
+          value={form[key]}
+          onChange={e => setForm(p => ({ ...p, [key]: e.target.value }))}
+        />
+      )}
     </div>
   );
 
   const toggle = (key: keyof typeof notifications) =>
     setNotifications(p => ({ ...p, [key]: !p[key] }));
 
+  if (loading) {
+    return <div className="p-8 text-center text-text-light">Loading settings...</div>;
+  }
+
   return (
-    <div className="page-container max-w-2xl">
-      <PageHeader title="System Settings" subtitle="Configure school information and preferences" />
+    <div className="page-container max-w-3xl">
+      <PageHeader title="System Settings" subtitle="Configure school information and mobile guest view" />
 
       <div className="card space-y-5">
         <div className="flex items-center gap-3 pb-4 border-b border-border-light">
@@ -44,8 +80,10 @@ export default function CMS() {
           </div>
           <p className="font-bold text-text">School Information</p>
         </div>
-        {field('School Name', 'schoolName')}
-        {field('Principal / Director Name', 'principalName')}
+        <div className="grid grid-cols-2 gap-4">
+          {field('School Name', 'schoolName')}
+          {field('Principal / Director Name', 'principalName')}
+        </div>
         {field('Address', 'address', 'text', '123 School St, City')}
         <div className="grid grid-cols-2 gap-4">
           {field('Phone Number', 'phone', 'tel', '+91 XXXXX XXXXX')}
@@ -57,10 +95,22 @@ export default function CMS() {
         </div>
       </div>
 
+      <div className="card space-y-5">
+        <div className="flex items-center gap-3 pb-4 border-b border-border-light">
+          <div className="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center">
+            <LayoutTemplate className="w-4.5 h-4.5 text-orange-500" />
+          </div>
+          <p className="font-bold text-text">Mobile App Guest View</p>
+        </div>
+        {field('Hero Title', 'guestHeroTitle', 'text', 'A joyful place to learn & grow')}
+        {field('Hero Subtitle / Body', 'guestHeroBody', 'textarea', 'Explore our courses...')}
+        {field('About Us Text', 'guestAboutText', 'textarea', 'Masti Ki Paathshaala is dedicated to...')}
+      </div>
+
       <div className="card space-y-4">
         <div className="flex items-center gap-3 pb-4 border-b border-border-light">
-          <div className="w-9 h-9 rounded-xl bg-primary-bg flex items-center justify-center">
-            <Bell className="w-4.5 h-4.5 text-primary" />
+          <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center">
+            <Bell className="w-4.5 h-4.5 text-purple-500" />
           </div>
           <p className="font-bold text-text">Notification Preferences</p>
         </div>
@@ -79,17 +129,16 @@ export default function CMS() {
             <span className="text-sm text-text group-hover:text-text/80 transition-colors">{item.label}</span>
           </label>
         ))}
-        <p className="text-xs text-text-light pt-1">SMS via fast2sms will be configured separately.</p>
       </div>
 
       <div className="flex items-center gap-4">
-        <button className="btn-primary" onClick={handleSave}>
-          <Save className="w-3.5 h-3.5 mr-1.5" />
+        <button className="btn-primary px-8" onClick={handleSave}>
+          <Save className="w-4 h-4 mr-2" />
           {saved ? 'Saved!' : 'Save Settings'}
         </button>
         {saved && (
           <div className="flex items-center gap-1.5 text-success text-sm font-medium">
-            <CheckCircle2 className="w-4 h-4" />Settings saved successfully
+            <CheckCircle2 className="w-4 h-4" /> Settings updated securely.
           </div>
         )}
       </div>
