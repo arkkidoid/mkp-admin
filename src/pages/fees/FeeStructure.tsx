@@ -58,9 +58,9 @@ export default function FeeStructure() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: async (id: string) => apiClient.put(`/fees/${id}`, { status: 'overdue' }),
+    mutationFn: async (id: string) => apiClient.delete(`/fees/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminFees'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
   });
 
   const recordPayment = async (fee: any) => {
@@ -133,7 +133,7 @@ export default function FeeStructure() {
                         <button className="btn-ghost !px-2.5 !py-1 !text-success !text-[11px] hover:!bg-emerald-50" onClick={() => recordPayment(fee)}>Mark Paid</button>
                       )}
                       <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(fee)}><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Mark as overdue?')) deleteMutation.mutate(fee._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this fee record? This cannot be undone.')) deleteMutation.mutate(fee._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>

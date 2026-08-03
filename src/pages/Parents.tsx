@@ -7,7 +7,7 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', occupation: '', accessCode: '' };
+const EMPTY = { name: '', phone: '', email: '', occupation: '', accessCode: '', street: '', city: '', state: '', pincode: '' };
 
 export default function Parents() {
   const qc = useQueryClient();
@@ -28,7 +28,17 @@ export default function Parents() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (p: any) => {
-    setForm({ name: p.name, phone: p.phone, email: p.email ?? '', occupation: p.profile?.occupation ?? '', accessCode: '' });
+    setForm({
+      name: p.name,
+      phone: p.phone,
+      email: p.email ?? '',
+      occupation: p.profile?.occupation ?? '',
+      accessCode: '',
+      street: p.address?.street ?? '',
+      city: p.address?.city ?? '',
+      state: p.address?.state ?? '',
+      pincode: p.address?.pincode ?? '',
+    });
     setErr('');
     setModal({ open: true, mode: 'edit', item: p });
   };
@@ -46,8 +56,9 @@ export default function Parents() {
       if (modal.mode === 'add' && form.accessCode.length !== 6) throw new Error('A 6-digit access code is required for new parents.');
       if (modal.mode === 'edit' && form.accessCode && form.accessCode.length !== 6) throw new Error('Access code must be exactly 6 digits.');
       
-      const payload = { ...form };
-      if (modal.mode === 'edit' && !payload.accessCode) delete (payload as any).accessCode;
+      const { street, city, state, pincode, ...rest } = form;
+      const payload: any = { ...rest, address: { street, city, state, pincode } };
+      if (modal.mode === 'edit' && !payload.accessCode) delete payload.accessCode;
       
       if (modal.mode === 'add') await apiClient.post('/admin/parents', payload);
       else await apiClient.put(`/admin/parents/${modal.item._id}`, payload);
@@ -152,6 +163,27 @@ export default function Parents() {
               />
             </div>
           ))}
+
+          {/* Address Section */}
+          <div>
+            <p className="label mb-2">Address <span className="text-text-light font-normal">(optional)</span></p>
+            <div className="space-y-2">
+              <input className="input-field" placeholder="Street / Locality" value={form.street} onChange={f('street')} />
+              <div className="grid grid-cols-2 gap-2">
+                <input className="input-field" placeholder="City" value={form.city} onChange={f('city')} />
+                <input className="input-field" placeholder="State" value={form.state} onChange={f('state')} />
+              </div>
+              <input
+                className="input-field"
+                placeholder="Pincode"
+                value={form.pincode}
+                onChange={e => setForm(p => ({ ...p, pincode: e.target.value.replace(/\D/g, '').slice(0, 6) }))}
+                inputMode="numeric"
+                maxLength={6}
+              />
+            </div>
+          </div>
+
           {err && <p className="text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
