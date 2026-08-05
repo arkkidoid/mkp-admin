@@ -7,7 +7,33 @@ import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
-const EMPTY = { name: '', phone: '', email: '', occupation: '', accessCode: '', street: '', city: '', state: '', pincode: '' };
+// Common country codes with flags
+const COUNTRY_CODES = [
+  { code: '+91',  flag: '🇮🇳', name: 'India' },
+  { code: '+1',   flag: '🇺🇸', name: 'USA / Canada' },
+  { code: '+44',  flag: '🇬🇧', name: 'UK' },
+  { code: '+971', flag: '🇦🇪', name: 'UAE' },
+  { code: '+966', flag: '🇸🇦', name: 'Saudi Arabia' },
+  { code: '+974', flag: '🇶🇦', name: 'Qatar' },
+  { code: '+968', flag: '🇴🇲', name: 'Oman' },
+  { code: '+965', flag: '🇰🇼', name: 'Kuwait' },
+  { code: '+973', flag: '🇧🇭', name: 'Bahrain' },
+  { code: '+61',  flag: '🇦🇺', name: 'Australia' },
+  { code: '+65',  flag: '🇸🇬', name: 'Singapore' },
+  { code: '+60',  flag: '🇲🇾', name: 'Malaysia' },
+  { code: '+49',  flag: '🇩🇪', name: 'Germany' },
+  { code: '+33',  flag: '🇫🇷', name: 'France' },
+  { code: '+81',  flag: '🇯🇵', name: 'Japan' },
+  { code: '+86',  flag: '🇨🇳', name: 'China' },
+  { code: '+92',  flag: '🇵🇰', name: 'Pakistan' },
+  { code: '+880', flag: '🇧🇩', name: 'Bangladesh' },
+  { code: '+94',  flag: '🇱🇰', name: 'Sri Lanka' },
+  { code: '+977', flag: '🇳🇵', name: 'Nepal' },
+  { code: '+27',  flag: '🇿🇦', name: 'South Africa' },
+  { code: '+55',  flag: '🇧🇷', name: 'Brazil' },
+];
+
+const EMPTY = { name: '', phone: '', countryCode: '+91', email: '', occupation: '', accessCode: '', street: '', city: '', state: '', pincode: '' };
 
 export default function Parents() {
   const qc = useQueryClient();
@@ -26,11 +52,21 @@ export default function Parents() {
     (p.phone ?? '').includes(search)
   );
 
+  // Parse existing phone to extract country code on edit
+  const parsePhone = (phone: string) => {
+    if (!phone) return { countryCode: '+91', local: '' };
+    const match = COUNTRY_CODES.find(c => phone.startsWith(c.code));
+    if (match) return { countryCode: match.code, local: phone.slice(match.code.length).trim() };
+    return { countryCode: '+91', local: phone };
+  };
+
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (p: any) => {
+    const { countryCode, local } = parsePhone(p.phone ?? '');
     setForm({
       name: p.name,
-      phone: p.phone,
+      phone: local,
+      countryCode,
       email: p.email ?? '',
       occupation: p.profile?.occupation ?? '',
       accessCode: '',
@@ -43,23 +79,27 @@ export default function Parents() {
     setModal({ open: true, mode: 'edit', item: p });
   };
   const close = () => setModal({ open: false, mode: 'add' });
+
   const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) => {
-    const val = (k === 'phone' || k === 'accessCode') ? e.target.value.replace(/\D/g, '') : e.target.value;
-    if (k === 'phone') setForm(p => ({ ...p, [k]: val.slice(0, 10) }));
-    else if (k === 'accessCode') setForm(p => ({ ...p, [k]: val.slice(0, 6) }));
-    else setForm(p => ({ ...p, [k]: val }));
+    if (k === 'phone') {
+      setForm(p => ({ ...p, phone: e.target.value.replace(/[^\d\s\-()]/g, '') }));
+    } else if (k === 'accessCode') {
+      setForm(p => ({ ...p, [k]: e.target.value.replace(/\D/g, '').slice(0, 6) }));
+    } else {
+      setForm(p => ({ ...p, [k]: e.target.value }));
+    }
   };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      if (!/^[6-9]\d{9}$/.test(form.phone)) throw new Error('Enter a valid 10-digit mobile number (starting 6-9) — this is how the parent signs into the app.');
+      const fullPhone = `${form.countryCode}${form.phone.trim()}`;
       if (modal.mode === 'add' && form.accessCode.length !== 6) throw new Error('A 6-digit access code is required for new parents.');
       if (modal.mode === 'edit' && form.accessCode && form.accessCode.length !== 6) throw new Error('Access code must be exactly 6 digits.');
-      
-      const { street, city, state, pincode, ...rest } = form;
-      const payload: any = { ...rest, address: { street, city, state, pincode } };
+
+      const { street, city, state, pincode, countryCode, phone, ...rest } = form;
+      const payload: any = { ...rest, phone: fullPhone, address: { street, city, state, pincode } };
       if (modal.mode === 'edit' && !payload.accessCode) delete payload.accessCode;
-      
+
       if (modal.mode === 'add') await apiClient.post('/admin/parents', payload);
       else await apiClient.put(`/admin/parents/${modal.item._id}`, payload);
     },
@@ -150,19 +190,66 @@ export default function Parents() {
         }
       >
         <div className="space-y-4">
-          {([['Full Name', 'name', 'text'], ['Phone (10 digits)', 'phone', 'tel'], ['Email', 'email', 'email'], ['Occupation', 'occupation', 'text'], ['6-Digit Access Code (Leave blank to keep current)', 'accessCode', 'text']] as [string, keyof typeof EMPTY, string][]).map(([label, key, type]) => (
-            <div key={key}>
-              <label className="label">{label}</label>
+          {/* Full Name */}
+          <div>
+            <label className="label">Full Name</label>
+            <input className="input-field" type="text" value={form.name} onChange={f('name')} placeholder="Full Name" />
+          </div>
+
+          {/* Phone with country code dropdown */}
+          <div>
+            <label className="label">Phone Number</label>
+            <div className="flex gap-2">
+              <select
+                className="input-field !w-auto !pr-8 flex-shrink-0 cursor-pointer"
+                value={form.countryCode}
+                onChange={e => setForm(p => ({ ...p, countryCode: e.target.value }))}
+              >
+                {COUNTRY_CODES.map(c => (
+                  <option key={c.code} value={c.code}>
+                    {c.flag} {c.code} {c.name}
+                  </option>
+                ))}
+              </select>
               <input
-                className="input-field"
-                type={type}
-                value={form[key]}
-                onChange={f(key)}
-                placeholder={label}
-                {...(key === 'phone' ? { maxLength: 10, inputMode: 'numeric' as const } : key === 'accessCode' ? { maxLength: 6, inputMode: 'numeric' as const } : {})}
+                className="input-field flex-1"
+                type="tel"
+                value={form.phone}
+                onChange={f('phone')}
+                placeholder="Phone number"
+                inputMode="numeric"
               />
             </div>
-          ))}
+            <p className="text-xs text-text-light mt-1">
+              Full number: <span className="font-medium text-text-secondary">{form.countryCode}{form.phone || 'XXXXXXXXXX'}</span>
+            </p>
+          </div>
+
+          {/* Email */}
+          <div>
+            <label className="label">Email</label>
+            <input className="input-field" type="email" value={form.email} onChange={f('email')} placeholder="Email" />
+          </div>
+
+          {/* Occupation */}
+          <div>
+            <label className="label">Occupation</label>
+            <input className="input-field" type="text" value={form.occupation} onChange={f('occupation')} placeholder="Occupation" />
+          </div>
+
+          {/* Access Code */}
+          <div>
+            <label className="label">6-Digit Access Code {modal.mode === 'edit' && <span className="text-text-light font-normal">(Leave blank to keep current)</span>}</label>
+            <input
+              className="input-field"
+              type="text"
+              value={form.accessCode}
+              onChange={f('accessCode')}
+              placeholder="6-digit code"
+              maxLength={6}
+              inputMode="numeric"
+            />
+          </div>
 
           {/* Address Section */}
           <div>
