@@ -8,7 +8,7 @@ import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-const EMPTY = { name: '', teacherId: '', subjectId: '', location: '', classroom: '', capacity: '20', classesPerWeek: '1', academicYear: '2025-26', startTime: '09:00', endTime: '11:00', scheduleDays: [] as string[] };
+const EMPTY = { name: '', teacherId: '', subjectId: '', location: '', classroom: '', capacity: '20', classesPerWeek: '1', numberOfClasses: '12', academicYear: '2025-26', startTime: '09:00', endTime: '11:00', scheduleDays: [] as string[] };
 
 // Strip a "CODE-" prefix so the edit field shows the bare label (e.g. "ROB-A" → "A")
 const bareLabel = (name: string, code?: string) => {
@@ -36,7 +36,7 @@ export default function Batches() {
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (b: any) => {
     const s = b.schedule?.[0] ?? {};
-    setForm({ name: bareLabel(b.name, b.subject?.code), teacherId: b.teacher?._id ?? '', subjectId: b.subject?._id ?? '', location: b.location ?? '', classroom: b.classroom ?? '', capacity: String(b.capacity ?? 20), classesPerWeek: String(b.classesPerWeek ?? 1), academicYear: b.academicYear ?? '2025-26', startTime: s.startTime ?? '09:00', endTime: s.endTime ?? '11:00', scheduleDays: b.schedule?.map((x: any) => x.day) ?? [] });
+    setForm({ name: bareLabel(b.name, b.subject?.code), teacherId: b.teacher?._id ?? '', subjectId: b.subject?._id ?? '', location: b.location ?? '', classroom: b.classroom ?? '', capacity: String(b.capacity ?? 20), classesPerWeek: String(b.classesPerWeek ?? 1), numberOfClasses: String(b.numberOfClasses ?? 12), academicYear: b.academicYear ?? '2025-26', startTime: s.startTime ?? '09:00', endTime: s.endTime ?? '11:00', scheduleDays: b.schedule?.map((x: any) => x.day) ?? [] });
     setErr('');
     setModal({ open: true, mode: 'edit', item: b });
   };
@@ -46,7 +46,7 @@ export default function Batches() {
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      const payload = { name: form.name, location: form.location, classroom: form.classroom, capacity: Number(form.capacity), classesPerWeek: Number(form.classesPerWeek), academicYear: form.academicYear, teacherId: form.teacherId, subjectId: form.subjectId, schedule: form.scheduleDays.map(day => ({ day, startTime: form.startTime, endTime: form.endTime })) };
+      const payload = { name: form.name, location: form.location, classroom: form.classroom, capacity: Number(form.capacity), classesPerWeek: Number(form.classesPerWeek), numberOfClasses: Number(form.numberOfClasses), academicYear: form.academicYear, teacherId: form.teacherId, subjectId: form.subjectId, schedule: form.scheduleDays.map(day => ({ day, startTime: form.startTime, endTime: form.endTime })) };
       if (modal.mode === 'add') await apiClient.post('/admin/batches', payload);
       else await apiClient.put(`/admin/batches/${modal.item._id}`, payload);
     },
@@ -136,6 +136,7 @@ export default function Batches() {
           </div>
           <div><label className="label">Classroom / Room</label><input className="input-field" value={form.classroom} onChange={f('classroom')} placeholder="Lab 1, Room B2…" /></div>
           <div><label className="label">Capacity</label><input className="input-field" type="number" value={form.capacity} onChange={f('capacity')} /></div>
+          <div><label className="label">Total Classes</label><input className="input-field" type="number" value={form.numberOfClasses} onChange={f('numberOfClasses')} min="1" /></div>
           <div><label className="label">Classes per week</label><input className="input-field" type="number" value={form.classesPerWeek} onChange={f('classesPerWeek')} min="1" max="7" /></div>
           <div className="sm:col-span-2"><label className="label">Location / Place</label><input className="input-field" value={form.location} onChange={f('location')} placeholder="e.g. Sector 15 Centre, Community Hall…" /><p className="text-[11px] text-text-light mt-1">Where this batch is held — the instructor sees this to know where to go.</p></div>
           <div><label className="label">Start Time</label><input className="input-field" type="time" value={form.startTime} onChange={f('startTime')} /></div>
