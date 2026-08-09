@@ -16,9 +16,10 @@ const NAV_GROUPS = [
   {
     label: 'People',
     items: [
-      { name: 'Students',  path: '/children',  icon: BookOpen },
-      { name: 'Teachers',  path: '/teachers',  icon: GraduationCap },
-      { name: 'Parents',   path: '/parents',   icon: Users },
+      { name: 'Students',    path: '/children',    icon: BookOpen },
+      { name: 'Enrollments', path: '/enrollments', icon: Layers },
+      { name: 'Teachers',    path: '/teachers',    icon: GraduationCap },
+      { name: 'Parents',     path: '/parents',     icon: Users },
     ],
   },
   {

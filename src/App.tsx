@@ -6,6 +6,7 @@ import Parents from './pages/Parents';
 import Children from './pages/Children';
 import Teachers from './pages/Teachers';
 import Batches from './pages/Batches';
+import Enrollments from './pages/Enrollments';
 import CourseList from './pages/courses/CourseList';
 import AttendanceReports from './pages/attendance/AttendanceReports';
 import AssignmentMonitoring from './pages/assignments/AssignmentMonitoring';
@@ -28,6 +29,7 @@ function App() {
         <Route path="/teachers" element={<Teachers />} />
         <Route path="/children" element={<Children />} />
         <Route path="/batches" element={<Batches />} />
+        <Route path="/enrollments" element={<Enrollments />} />
         <Route path="/courses" element={<CourseList />} />
         <Route path="/attendance" element={<AttendanceReports />} />
         <Route path="/assignments" element={<AssignmentMonitoring />} />
