@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, IndianRupee, Edit2, Trash2 } from 'lucide-react';
+import { Plus, IndianRupee, Edit2, Trash2, ChevronDown, ChevronRight, User } from 'lucide-react';
 import apiClient from '../../api/client';
 import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
@@ -41,11 +41,21 @@ export default function FeeStructure() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (fee: any) => {
-    setForm({ title: fee.title, amount: String(fee.amount), discount: String(fee.discount ?? 0), feeType: fee.feeType, dueDate: fee.dueDate?.slice(0, 10) ?? '', childId: fee.child?._id ?? '', parentId: fee.parent ?? '', month: fee.month ?? '', academicYear: fee.academicYear ?? '2025-26' });
+    setForm({ title: fee.title, amount: String(fee.amount), discount: String(fee.discount ?? 0), feeType: fee.feeType, dueDate: fee.dueDate?.slice(0, 10) ?? '', childId: fee.child?._id ?? '', parentId: fee.parent?._id ?? '', month: fee.month ?? '', academicYear: fee.academicYear ?? '2025-26' });
     setErr('');
     setModal({ open: true, mode: 'edit', item: fee });
   };
   const close = () => setModal({ open: false, mode: 'add' });
+
+  const feesByParent = fees.reduce((acc: any, f: any) => {
+    const pId = f.parent?._id || 'unassigned';
+    if (!acc[pId]) acc[pId] = { parent: f.parent, fees: [] };
+    acc[pId].fees.push(f);
+    return acc;
+  }, {});
+  const parentGroups = Object.values(feesByParent);
+  const [expandedParents, setExpandedParents] = useState<string[]>([]);
+  const toggleParent = (pId: string) => setExpandedParents(p => p.includes(pId) ? p.filter(id => id !== pId) : [...p, pId]);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -113,31 +123,64 @@ export default function FeeStructure() {
             </thead>
             <tbody>
               {isLoading ? <tr><td colSpan={6} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
-              : fees.length === 0 ? <tr><td colSpan={6}><EmptyState icon={IndianRupee} title="No fee records" description={search ? 'Try a different search.' : 'Add the first fee record to get started.'} action={!search ? <button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Fee</button> : undefined} /></td></tr>
-              : fees.map((fee: any) => (
-                <tr key={fee._id} className="border-b border-border-light last:border-0 hover:bg-background/60 transition-colors">
-                  <td className="table-cell">
-                    <p className="font-semibold text-text">{fee.title}</p>
-                    <p className="text-xs text-text-light capitalize">{fee.feeType}</p>
-                  </td>
-                  <td className="table-cell text-sm text-text-secondary">{fee.child?.name ?? '—'}</td>
-                  <td className="table-cell">
-                    <p className="font-bold text-text">₹{(fee.finalAmount ?? 0).toLocaleString('en-IN')}</p>
-                    {(fee.discount ?? 0) > 0 && <p className="text-xs text-success">−₹{fee.discount}</p>}
-                  </td>
-                  <td className="table-cell text-sm text-text-secondary">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
-                  <td className="table-cell"><span className={`badge ${STATUS_BADGE[fee.status] ?? 'badge-gray'} capitalize`}>{fee.status}</span></td>
-                  <td className="table-cell">
-                    <div className="flex items-center justify-end gap-1">
-                      {fee.status !== 'paid' && (
-                        <button className="btn-ghost !px-2.5 !py-1 !text-success !text-[11px] hover:!bg-emerald-50" onClick={() => recordPayment(fee)}>Mark Paid</button>
-                      )}
-                      <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(fee)}><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this fee record? This cannot be undone.')) deleteMutation.mutate(fee._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
+              : parentGroups.length === 0 ? <tr><td colSpan={6}><EmptyState icon={IndianRupee} title="No fee records" description={search ? 'Try a different search.' : 'Add the first fee record to get started.'} action={!search ? <button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Fee</button> : undefined} /></td></tr>
+              : parentGroups.map((group: any) => {
+                  const pId = group.parent?._id || 'unassigned';
+                  const isExpanded = expandedParents.includes(pId);
+                  const parentPending = group.fees.filter((f: any) => ['pending', 'overdue'].includes(f.status)).reduce((s: number, f: any) => s + (f.finalAmount ?? 0), 0);
+                  return (
+                    <React.Fragment key={pId}>
+                      <tr className="bg-background cursor-pointer hover:bg-background/60 transition-colors border-b border-border-light" onClick={() => toggleParent(pId)}>
+                        <td colSpan={6} className="py-3 px-4">
+                          <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              {isExpanded ? <ChevronDown className="w-4 h-4 text-text-light" /> : <ChevronRight className="w-4 h-4 text-text-light" />}
+                              <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center"><User className="w-4 h-4 text-primary" /></div>
+                              <div>
+                                <p className="font-bold text-text">{group.parent?.name ?? 'Unassigned'}</p>
+                                <p className="text-xs text-text-secondary">{group.parent?.phone || 'No phone'} · {group.fees.length} fee records</p>
+                              </div>
+                            </div>
+                            {parentPending > 0 ? (
+                              <div className="text-right">
+                                <p className="text-xs text-error font-medium">Pending Dues</p>
+                                <p className="font-bold text-error">₹{parentPending.toLocaleString('en-IN')}</p>
+                              </div>
+                            ) : (
+                              <div className="text-right">
+                                <p className="text-xs text-success font-medium">All Clear</p>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                      {isExpanded && group.fees.map((fee: any) => (
+                        <tr key={fee._id} className="border-b border-border-light bg-[#FAFAFA] last:border-0 hover:bg-background/40 transition-colors">
+                          <td className="table-cell pl-14">
+                            <p className="font-semibold text-text">{fee.title}</p>
+                            <p className="text-xs text-text-light capitalize">{fee.feeType}</p>
+                          </td>
+                          <td className="table-cell text-sm text-text-secondary">{fee.child?.name ?? '—'}</td>
+                          <td className="table-cell">
+                            <p className="font-bold text-text">₹{(fee.finalAmount ?? 0).toLocaleString('en-IN')}</p>
+                            {(fee.discount ?? 0) > 0 && <p className="text-xs text-success">−₹{fee.discount}</p>}
+                          </td>
+                          <td className="table-cell text-sm text-text-secondary">{fee.dueDate ? new Date(fee.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}</td>
+                          <td className="table-cell"><span className={`badge ${STATUS_BADGE[fee.status] ?? 'badge-gray'} capitalize`}>{fee.status}</span></td>
+                          <td className="table-cell">
+                            <div className="flex items-center justify-end gap-1">
+                              {fee.status !== 'paid' && (
+                                <button className="btn-ghost !px-2.5 !py-1 !text-success !text-[11px] hover:!bg-emerald-50" onClick={() => recordPayment(fee)}>Mark Paid</button>
+                              )}
+                              <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(fee)}><Edit2 className="w-3.5 h-3.5" /></button>
+                              <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this fee record? This cannot be undone.')) deleteMutation.mutate(fee._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </React.Fragment>
+                  );
+                })}
             </tbody>
           </table>
         </div>
