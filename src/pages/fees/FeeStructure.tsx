@@ -11,7 +11,7 @@ const FEE_TYPES = ['tuition', 'transport', 'activity', 'exam', 'other'];
 const STATUS_BADGE: Record<string, string> = {
   paid: 'badge-green', pending: 'badge-orange', overdue: 'badge-red', partial: 'badge-blue',
 };
-const EMPTY = { title: '', amount: '', discount: '0', feeType: 'tuition', dueDate: '', childId: '', parentId: '', month: '', academicYear: '2025-26' };
+const EMPTY = { title: '', amount: '', discount: '0', feeType: 'tuition', dueDate: '', childId: '', parentId: '', month: '', academicYear: '2025-26', classesIncluded: '' };
 
 export default function FeeStructure() {
   const qc = useQueryClient();
@@ -41,7 +41,7 @@ export default function FeeStructure() {
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (fee: any) => {
-    setForm({ title: fee.title, amount: String(fee.amount), discount: String(fee.discount ?? 0), feeType: fee.feeType, dueDate: fee.dueDate?.slice(0, 10) ?? '', childId: fee.child?._id ?? '', parentId: fee.parent?._id ?? '', month: fee.month ?? '', academicYear: fee.academicYear ?? '2025-26' });
+    setForm({ title: fee.title, amount: String(fee.amount), discount: String(fee.discount ?? 0), feeType: fee.feeType, dueDate: fee.dueDate?.slice(0, 10) ?? '', childId: fee.child?._id ?? '', parentId: fee.parent?._id ?? '', month: fee.month ?? '', academicYear: fee.academicYear ?? '2025-26', classesIncluded: String(fee.classesIncluded ?? '') });
     setErr('');
     setModal({ open: true, mode: 'edit', item: fee });
   };
@@ -60,7 +60,7 @@ export default function FeeStructure() {
   const saveMutation = useMutation({
     mutationFn: async () => {
       const amt = Number(form.amount), disc = Number(form.discount);
-      const payload = { title: form.title, amount: amt, discount: disc, finalAmount: amt - disc, feeType: form.feeType, dueDate: form.dueDate, child: form.childId, parent: form.parentId || undefined, month: form.month, academicYear: form.academicYear };
+      const payload = { title: form.title, amount: amt, discount: disc, finalAmount: amt - disc, classesIncluded: Number(form.classesIncluded), feeType: form.feeType, dueDate: form.dueDate, child: form.childId, parent: form.parentId || undefined, month: form.month, academicYear: form.academicYear };
       modal.mode === 'add' ? await apiClient.post('/fees', payload) : await apiClient.put(`/fees/${modal.item._id}`, payload);
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminFees'] }); close(); },
@@ -203,12 +203,13 @@ export default function FeeStructure() {
             </select>
           </div>
           <div><label className="label">Amount (₹)</label><input className="input-field" type="number" value={form.amount} onChange={f('amount')} placeholder="0" /></div>
+          <div><label className="label">Classes Included</label><input className="input-field" type="number" value={form.classesIncluded} onChange={f('classesIncluded')} placeholder="e.g. 8" /></div>
           <div><label className="label">Discount (₹)</label><input className="input-field" type="number" value={form.discount} onChange={f('discount')} placeholder="0" /></div>
           <div className="sm:col-span-2 px-3 py-2 bg-background rounded-xl text-sm text-text-secondary border border-border-light">
             Final Amount: <strong className="text-text">₹{(Number(form.amount) - Number(form.discount)).toLocaleString('en-IN')}</strong>
           </div>
           <div><label className="label">Due Date</label><input className="input-field" type="date" value={form.dueDate} onChange={f('dueDate')} /></div>
-          <div><label className="label">Month</label><input className="input-field" value={form.month} onChange={f('month')} placeholder="June 2025" /></div>
+          <div><label className="label">Month <span className="text-text-light font-normal">(Optional)</span></label><input className="input-field" value={form.month} onChange={f('month')} placeholder="e.g. Block 1 or June 2026" /></div>
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
