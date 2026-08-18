@@ -29,14 +29,31 @@ export default function Children() {
     (c.section ?? '').toLowerCase().includes(search.toLowerCase())
   );
 
-  const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
+  const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setIsExisting(false); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
     setForm({ name: c.name, dateOfBirth: c.dateOfBirth?.slice(0, 10) ?? '', gender: c.gender ?? 'male', parentId: c.parent?._id ?? '', batchId: c.batch?._id ?? '', bloodGroup: c.bloodGroup ?? '', admissionNumber: c.admissionNumber ?? '' });
     setErr('');
+    setIsExisting(false);
     setModal({ open: true, mode: 'edit', item: c });
   };
   const close = () => setModal({ open: false, mode: 'add' });
   const f = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
+
+  const [isExisting, setIsExisting] = useState(false);
+  const handleSelectExisting = (childId: string) => {
+    const c = (children as any[]).find((x: any) => x._id === childId);
+    if (c) {
+      setForm({
+        name: c.name,
+        dateOfBirth: c.dateOfBirth?.slice(0, 10) ?? '',
+        gender: c.gender ?? 'male',
+        parentId: c.parent?._id ?? '',
+        batchId: '', // intentionally empty so they pick the new batch
+        bloodGroup: c.bloodGroup ?? '',
+        admissionNumber: '' // intentionally empty to avoid duplicate unique key error
+      });
+    }
+  };
 
   const saveMutation = useMutation({
     mutationFn: async () => {
@@ -132,17 +149,42 @@ export default function Children() {
         }
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          {modal.mode === 'add' && (
+            <div className="sm:col-span-2 mb-2 p-3 bg-blue-50/50 rounded-xl border border-blue-100">
+              <label className="label text-blue-900 mb-3">Enrollment Type</label>
+              <div className="flex gap-6">
+                <label className="flex items-center gap-2 text-sm text-blue-900 cursor-pointer">
+                  <input type="radio" className="accent-primary" checked={!isExisting} onChange={() => { setIsExisting(false); setForm({ ...EMPTY }); }} /> 
+                  <span className="font-medium">New Student</span>
+                </label>
+                <label className="flex items-center gap-2 text-sm text-blue-900 cursor-pointer">
+                  <input type="radio" className="accent-primary" checked={isExisting} onChange={() => setIsExisting(true)} /> 
+                  <span className="font-medium">Existing Student (New Batch)</span>
+                </label>
+              </div>
+            </div>
+          )}
+          {modal.mode === 'add' && isExisting && (
+            <div className="sm:col-span-2">
+              <label className="label">Select Existing Student</label>
+              <select className="select-field" onChange={(e) => handleSelectExisting(e.target.value)}>
+                <option value="">-- Choose Student to Copy --</option>
+                {(children as any[]).map(c => <option key={c._id} value={c._id}>{c.name} (Parent: {c.parent?.name})</option>)}
+              </select>
+            </div>
+          )}
+          
           <div className="sm:col-span-2">
             <label className="label">Full Name</label>
-            <input className="input-field" value={form.name} onChange={f('name')} placeholder="Student name" />
+            <input className="input-field" value={form.name} onChange={f('name')} placeholder="Student name" disabled={isExisting} />
           </div>
           <div>
             <label className="label">Date of Birth</label>
-            <input className="input-field" type="date" value={form.dateOfBirth} onChange={f('dateOfBirth')} />
+            <input className="input-field" type="date" value={form.dateOfBirth} onChange={f('dateOfBirth')} disabled={isExisting} />
           </div>
           <div>
             <label className="label">Gender</label>
-            <select className="select-field" value={form.gender} onChange={f('gender')}>
+            <select className="select-field" value={form.gender} onChange={f('gender')} disabled={isExisting}>
               <option value="male">Male</option>
               <option value="female">Female</option>
               <option value="other">Other</option>
@@ -154,11 +196,11 @@ export default function Children() {
           </div>
           <div>
             <label className="label">Blood Group</label>
-            <input className="input-field" value={form.bloodGroup} onChange={f('bloodGroup')} placeholder="e.g. O+" />
+            <input className="input-field" value={form.bloodGroup} onChange={f('bloodGroup')} placeholder="e.g. O+" disabled={isExisting} />
           </div>
           <div>
             <label className="label">Parent</label>
-            <select className="select-field" value={form.parentId} onChange={f('parentId')}>
+            <select className="select-field" value={form.parentId} onChange={f('parentId')} disabled={isExisting}>
               <option value="">Select parent</option>
               {(parents as any[]).map((p: any) => <option key={p._id} value={p._id}>{p.name} — {p.phone}</option>)}
             </select>
