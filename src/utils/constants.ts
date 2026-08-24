@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://mkp-backend.onrender.com/api';
+export const API_BASE_URL = 'https://api.mastikipaathshaala.org/api';
 
 export const ROLES = {
   ADMIN: 'admin',
