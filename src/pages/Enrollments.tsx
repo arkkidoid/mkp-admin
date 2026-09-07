@@ -41,15 +41,15 @@ export default function Enrollments() {
     setEditValue(String(child.classesLeft ?? 0));
   };
 
-  // Negatives are valid: a student attending past their paid classes is
-  // overdrawn, and the admin needs to be able to record that directly.
+  // Admin can set any whole number here, negatives included — an overdrawn
+  // student is a real state, not an error. Nothing is validated or blocked.
   const handleSave = (childId: string) => {
-    const trimmed = editValue.trim();
-    if (!/^-?\d+$/.test(trimmed)) {
-      alert('Enter a whole number. Negative values are allowed for overdrawn students.');
+    const val = parseInt(editValue.trim(), 10);
+    if (Number.isNaN(val)) {
+      setEditingId(null);
       return;
     }
-    updateMutation.mutate({ id: childId, classesLeft: parseInt(trimmed, 10) });
+    updateMutation.mutate({ id: childId, classesLeft: val });
   };
 
   return (
