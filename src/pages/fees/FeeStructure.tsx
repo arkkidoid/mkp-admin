@@ -11,6 +11,7 @@ const FEE_TYPES = ['tuition', 'transport', 'activity', 'exam', 'other'];
 const STATUS_BADGE: Record<string, string> = {
   paid: 'badge-green', pending: 'badge-orange', overdue: 'badge-red', partial: 'badge-blue',
 };
+const FETCH_LIMIT = 1000;
 const EMPTY = { title: '', amount: '', discount: '0', feeType: 'tuition', dueDate: '', childId: '', parentId: '', month: '', academicYear: '2025-26', classesIncluded: '' };
 
 export default function FeeStructure() {
@@ -21,14 +22,23 @@ export default function FeeStructure() {
   const [form, setForm] = useState({ ...EMPTY });
   const [err, setErr] = useState('');
 
-  const { data: feesData = [], isLoading } = useQuery({
+  // This screen groups every fee by parent and totals across all of them, so it
+  // pulls the whole set rather than a page. `meta` tells us if we hit the cap.
+  const { data: feesResult, isLoading } = useQuery({
     queryKey: ['adminFees', statusFilter],
-    queryFn: async () => (await apiClient.get(`/fees${statusFilter ? `?status=${statusFilter}` : ''}`)).data.data ?? [],
+    queryFn: async () => {
+      const params = new URLSearchParams({ limit: String(FETCH_LIMIT) });
+      if (statusFilter) params.set('status', statusFilter);
+      const res = await apiClient.get(`/fees?${params}`);
+      return { rows: res.data.data ?? [], total: res.data.meta?.total ?? 0 };
+    },
   });
+  const feesData = feesResult?.rows ?? [];
+  const truncated = (feesResult?.total ?? 0) > feesData.length;
 
   const { data: children = [] } = useQuery({
     queryKey: ['adminChildrenMin'],
-    queryFn: async () => (await apiClient.get('/admin/children')).data.data ?? [],
+    queryFn: async () => (await apiClient.get(`/admin/children?limit=${FETCH_LIMIT}`)).data.data ?? [],
   });
 
   const fees = (feesData as any[]).filter(f =>
@@ -105,6 +115,16 @@ export default function FeeStructure() {
           <div><p className="text-xs text-text-secondary font-medium">Collected</p><p className="text-xl font-bold text-success">₹{totalCollected.toLocaleString('en-IN')}</p></div>
         </div>
       </div>
+
+      {truncated && (
+        <div className="card !py-3 border-l-4 border-l-warning bg-orange-50">
+          <p className="text-sm text-text">
+            Showing the {feesData.length.toLocaleString('en-IN')} most recent of{' '}
+            {(feesResult?.total ?? 0).toLocaleString('en-IN')} fee records. Totals below cover
+            only what is shown — narrow by status to see the rest.
+          </p>
+        </div>
+      )}
 
       <div className="card !p-0 overflow-hidden">
         <div className="p-4 border-b border-border-light flex flex-col sm:flex-row gap-3">

@@ -14,7 +14,7 @@ export default function Enrollments() {
 
   const { data: children = [], isLoading } = useQuery({
     queryKey: ['adminChildren'],
-    queryFn: async () => (await apiClient.get('/admin/children')).data.data ?? [],
+    queryFn: async () => (await apiClient.get('/admin/children?limit=1000')).data.data ?? [],
   });
 
   const filtered = (children as any[]).filter(c =>
@@ -41,13 +41,15 @@ export default function Enrollments() {
     setEditValue(String(child.classesLeft ?? 0));
   };
 
+  // Negatives are valid: a student attending past their paid classes is
+  // overdrawn, and the admin needs to be able to record that directly.
   const handleSave = (childId: string) => {
-    const val = parseInt(editValue, 10);
-    if (!isNaN(val)) {
-      updateMutation.mutate({ id: childId, classesLeft: val });
-    } else {
-      setEditingId(null);
+    const trimmed = editValue.trim();
+    if (!/^-?\d+$/.test(trimmed)) {
+      alert('Enter a whole number. Negative values are allowed for overdrawn students.');
+      return;
     }
+    updateMutation.mutate({ id: childId, classesLeft: parseInt(trimmed, 10) });
   };
 
   return (
@@ -110,9 +112,18 @@ export default function Enrollments() {
                         onKeyDown={(e) => e.key === 'Enter' && handleSave(c._id)}
                       />
                     ) : (
-                      <span className={`font-semibold ${c.classesLeft <= 2 ? 'text-error' : 'text-text'}`}>
-                        {c.classesLeft ?? 0}
-                      </span>
+                      c.classesLeft == null ? (
+                        <span className="text-xs text-text-light italic">—</span>
+                      ) : c.classesLeft < 0 ? (
+                        <span className="inline-flex items-center gap-2">
+                          <span className="font-semibold text-error">{c.classesLeft}</span>
+                          <span className="badge badge-red">Overdrawn</span>
+                        </span>
+                      ) : (
+                        <span className={`font-semibold ${c.classesLeft <= 2 ? 'text-warning' : 'text-text'}`}>
+                          {c.classesLeft}
+                        </span>
+                      )
                     )}
                   </td>
                   <td className="table-cell text-right">
