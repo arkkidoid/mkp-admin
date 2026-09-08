@@ -6,28 +6,28 @@ import Modal from '../components/ui/Modal';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
+import Pagination from '../components/ui/Pagination';
+import { usePagedList } from '../hooks/usePagedList';
 
 const EMPTY = { name: '', dateOfBirth: '', gender: 'male', parentId: '', batchId: '', bloodGroup: '', admissionNumber: '' };
 
 export default function Children() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
   const [err, setErr] = useState('');
 
-  const { data: children = [], isLoading } = useQuery({
-    queryKey: ['adminChildren'],
-    queryFn: async () => (await apiClient.get('/admin/children')).data.data ?? [],
-  });
-  const { data: parents = [] } = useQuery({ queryKey: ['adminParents'], queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [] });
-  const { data: batches = [] } = useQuery({ queryKey: ['adminBatches'], queryFn: async () => (await apiClient.get('/admin/batches')).data.data ?? [] });
+  // Paged and searched on the server — the list is longer than one page, and
+  // filtering client-side could never find a student who was never fetched.
+  const {
+    rows: children, meta, isLoading, isFetching, setPage, search, setSearch,
+  } = usePagedList<any>({ key: 'adminChildren', url: '/admin/children' });
 
-  const filtered = (children as any[]).filter(c =>
-    (c.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.admissionNumber ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.section ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = children as any[];
+
+  // Dropdowns in the modal still need the full lists, not a page of them.
+  const { data: parents = [] } = useQuery({ queryKey: ['adminParentsAll'], queryFn: async () => (await apiClient.get('/admin/parents?limit=1000')).data.data ?? [] });
+  const { data: batches = [] } = useQuery({ queryKey: ['adminBatchesAll'], queryFn: async () => (await apiClient.get('/admin/batches?limit=1000')).data.data ?? [] });
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setIsExisting(false); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
@@ -131,6 +131,10 @@ export default function Children() {
               ))}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-4 pb-4">
+          <Pagination meta={meta} onChange={setPage} isFetching={isFetching} />
         </div>
       </div>
 

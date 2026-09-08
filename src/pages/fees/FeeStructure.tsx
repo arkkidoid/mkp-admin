@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, IndianRupee, Edit2, Trash2, ChevronDown, ChevronRight, User } from 'lucide-react';
 import apiClient from '../../api/client';
@@ -6,6 +6,7 @@ import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import SearchInput from '../../components/ui/SearchInput';
 import EmptyState from '../../components/ui/EmptyState';
+import Pagination from '../../components/ui/Pagination';
 
 const FEE_TYPES = ['tuition', 'transport', 'activity', 'exam', 'other'];
 const STATUS_BADGE: Record<string, string> = {
@@ -65,6 +66,21 @@ export default function FeeStructure() {
   }, {});
   const parentGroups = Object.values(feesByParent);
   const [expandedParents, setExpandedParents] = useState<string[]>([]);
+
+  // Paged by parent, not by fee: this view groups every fee under its parent
+  // and totals across them, so splitting one parent across two pages would
+  // show a partial balance. The counts below are parents.
+  const GROUPS_PER_PAGE = 20;
+  const [page, setPage] = useState(1);
+  useEffect(() => { setPage(1); }, [search, statusFilter]);
+  const pagedGroups = parentGroups.slice((page - 1) * GROUPS_PER_PAGE, page * GROUPS_PER_PAGE);
+  const groupMeta = {
+    page,
+    limit: GROUPS_PER_PAGE,
+    total: parentGroups.length,
+    pages: Math.max(1, Math.ceil(parentGroups.length / GROUPS_PER_PAGE)),
+    hasMore: page * GROUPS_PER_PAGE < parentGroups.length,
+  };
   const toggleParent = (pId: string) => setExpandedParents(p => p.includes(pId) ? p.filter(id => id !== pId) : [...p, pId]);
 
   const saveMutation = useMutation({
@@ -144,7 +160,7 @@ export default function FeeStructure() {
             <tbody>
               {isLoading ? <tr><td colSpan={6} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
               : parentGroups.length === 0 ? <tr><td colSpan={6}><EmptyState icon={IndianRupee} title="No fee records" description={search ? 'Try a different search.' : 'Add the first fee record to get started.'} action={!search ? <button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Add Fee</button> : undefined} /></td></tr>
-              : parentGroups.map((group: any) => {
+              : pagedGroups.map((group: any) => {
                   const pId = group.parent?._id || 'unassigned';
                   const isExpanded = expandedParents.includes(pId);
                   const parentPending = group.fees.filter((f: any) => ['pending', 'overdue'].includes(f.status)).reduce((s: number, f: any) => s + (f.finalAmount ?? 0), 0);
@@ -203,6 +219,10 @@ export default function FeeStructure() {
                 })}
             </tbody>
           </table>
+        </div>
+
+        <div className="px-4 pb-4">
+          <Pagination meta={groupMeta} onChange={setPage} />
         </div>
       </div>
 

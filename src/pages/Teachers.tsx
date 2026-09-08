@@ -5,6 +5,8 @@ import apiClient from '../api/client';
 import Modal from '../components/ui/Modal';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
+import Pagination from '../components/ui/Pagination';
+import { usePagedList } from '../hooks/usePagedList';
 import EmptyState from '../components/ui/EmptyState';
 
 const EMPTY = { name: '', phone: '', email: '', employeeId: '', qualification: '', experience: '', subjects: [] as string[], accessCode: '' };
@@ -23,25 +25,22 @@ const FIELDS: [string, TextKey, string, number?][] = [
 
 export default function Teachers() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
   const [err, setErr] = useState('');
 
-  const { data: teachers = [], isLoading } = useQuery({
-    queryKey: ['adminTeachers'],
-    queryFn: async () => (await apiClient.get('/admin/teachers')).data.data ?? [],
-  });
+  // Server-side paging and search: filtering only the fetched page could
+  // never surface a record that was never fetched.
+  const {
+    rows: teachers, meta, isLoading, isFetching, setPage, search, setSearch,
+  } = usePagedList<any>({ key: 'adminTeachers', url: '/admin/teachers' });
 
   const { data: subjects = [] } = useQuery({
     queryKey: ['adminSubjects'],
     queryFn: async () => (await apiClient.get('/admin/subjects')).data.data ?? [],
   });
 
-  const filtered = (teachers as any[]).filter(t =>
-    (t.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (t.profile?.employeeId ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = teachers as any[];
 
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setModal({ open: true, mode: 'add' }); };
   const openEdit = (t: any) => {
@@ -153,6 +152,8 @@ export default function Teachers() {
             </tbody>
           </table>
         </div>
+
+        <Pagination meta={meta} onChange={setPage} isFetching={isFetching} />
       </div>
 
       <Modal

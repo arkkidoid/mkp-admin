@@ -1,10 +1,12 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, Edit2, Trash2, Users } from 'lucide-react';
 import apiClient from '../api/client';
 import Modal from '../components/ui/Modal';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
+import Pagination from '../components/ui/Pagination';
+import { usePagedList } from '../hooks/usePagedList';
 import EmptyState from '../components/ui/EmptyState';
 
 // Common country codes with flags
@@ -37,20 +39,17 @@ const EMPTY = { name: '', phone: '', countryCode: '+91', email: '', occupation: 
 
 export default function Parents() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
   const [err, setErr] = useState('');
 
-  const { data: parents = [], isLoading } = useQuery({
-    queryKey: ['adminParents'],
-    queryFn: async () => (await apiClient.get('/admin/parents')).data.data ?? [],
-  });
+  // Server-side paging and search: filtering only the fetched page could
+  // never surface a record that was never fetched.
+  const {
+    rows: parents, meta, isLoading, isFetching, setPage, search, setSearch,
+  } = usePagedList<any>({ key: 'adminParents', url: '/admin/parents' });
 
-  const filtered = (parents as any[]).filter(p =>
-    (p.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (p.phone ?? '').includes(search)
-  );
+  const filtered = parents as any[];
 
   // Parse existing phone to extract country code on edit
   const parsePhone = (phone: string) => {
@@ -174,6 +173,8 @@ export default function Parents() {
             </tbody>
           </table>
         </div>
+
+        <Pagination meta={meta} onChange={setPage} isFetching={isFetching} />
       </div>
 
       <Modal

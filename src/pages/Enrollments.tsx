@@ -1,26 +1,25 @@
 import { useState } from 'react';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { BookOpen, Save, X, Edit2 } from 'lucide-react';
 import apiClient from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
+import Pagination from '../components/ui/Pagination';
+import { usePagedList } from '../hooks/usePagedList';
 import EmptyState from '../components/ui/EmptyState';
 
 export default function Enrollments() {
   const qc = useQueryClient();
-  const [search, setSearch] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
 
-  const { data: children = [], isLoading } = useQuery({
-    queryKey: ['adminChildren'],
-    queryFn: async () => (await apiClient.get('/admin/children?limit=1000')).data.data ?? [],
-  });
+  // Server-side paging and search: filtering only the fetched page could
+  // never surface a record that was never fetched.
+  const {
+    rows: children, meta, isLoading, isFetching, setPage, search, setSearch,
+  } = usePagedList<any>({ key: 'adminChildren', url: '/admin/children' });
 
-  const filtered = (children as any[]).filter(c =>
-    (c.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.batch?.name ?? '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = children as any[];
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, classesLeft }: { id: string, classesLeft: number }) => {
@@ -147,6 +146,8 @@ export default function Enrollments() {
             </tbody>
           </table>
         </div>
+
+        <Pagination meta={meta} onChange={setPage} isFetching={isFetching} />
       </div>
     </div>
   );
