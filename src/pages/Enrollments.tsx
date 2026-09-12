@@ -7,8 +7,12 @@ import SearchInput from '../components/ui/SearchInput';
 import Pagination from '../components/ui/Pagination';
 import { usePagedList } from '../hooks/usePagedList';
 import EmptyState from '../components/ui/EmptyState';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 export default function Enrollments() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -32,7 +36,7 @@ export default function Enrollments() {
       setEditingId(null);
     },
     onError: (e: any) => {
-      alert(e?.response?.data?.message || 'Update failed');
+      toast(e?.response?.data?.message || 'Update failed', 'error');
       setEditingId(null);
     },
   });
@@ -43,20 +47,26 @@ export default function Enrollments() {
     mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) =>
       apiClient.patch(`/admin/children/${id}/status`, { isActive }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminChildren'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Could not change status'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Could not change status', 'error'),
   });
 
-  const toggleStatus = (c: any) => {
+  const toggleStatus = async (c: any) => {
     if (c.isActive === false) {
       statusMutation.mutate({ id: c._id, isActive: true });
       return;
     }
-    if (confirm(
-      `Stop ${c.name}'s enrollment in ${c.batch?.name ?? 'this course'}?\n\n` +
-      `They will come off the teacher's attendance list and the course will ` +
-      `disappear from the parent's app. Attendance and fee history are kept, ` +
-      `and any unpaid fee stays due. You can resume this at any time.`
-    )) {
+    if (await confirm({
+      title: 'Stop this enrollment?',
+      message: 'The course pauses for this student. Their other courses are unaffected.',
+      details: [
+        { label: 'Student', value: c.name },
+        { label: 'Course', value: c.batch?.name ?? '—' },
+        { label: 'Classes left', value: String(c.classesLeft ?? 0) },
+      ],
+      consequence: 'They come off the teacher\u2019s attendance list and the course disappears from the parent\u2019s app. Attendance and fee history are kept, any unpaid fee stays due, and you can resume this at any time.',
+      confirmLabel: 'Stop enrollment',
+      tone: 'warning',
+    })) {
       statusMutation.mutate({ id: c._id, isActive: false });
     }
   };
@@ -204,6 +214,7 @@ export default function Enrollments() {
 
         <Pagination meta={meta} onChange={setPage} isFetching={isFetching} />
       </div>
+    {dialog}
     </div>
   );
 }

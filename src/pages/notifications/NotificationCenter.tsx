@@ -4,6 +4,8 @@ import { Send, Bell, Users, GraduationCap, Globe, User, ChevronDown, X } from 'l
 import apiClient from '../../api/client';
 import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 const TARGETS = [
   { value: 'all',     label: 'Everyone',      icon: Globe,         desc: 'All parents & teachers' },
@@ -21,6 +23,8 @@ const FEE_TEMPLATES = [
 type TabType = 'broadcast' | 'direct' | 'history';
 
 export default function NotificationCenter() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [tab, setTab] = useState<TabType>('broadcast');
   const [form, setForm] = useState({ title: '', body: '', targetRole: 'all' });
@@ -48,14 +52,14 @@ export default function NotificationCenter() {
 
   const broadcastMutation = useMutation({
     mutationFn: async () => apiClient.post('/notifications', form),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificationHistory'] }); setForm({ title: '', body: '', targetRole: 'all' }); alert('Notification sent!'); },
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificationHistory'] }); setForm({ title: '', body: '', targetRole: 'all' }); toast('Notification sent to everyone selected.'); },
+    onError: (e: any) => toast(e?.response?.data?.message || 'Failed', 'error'),
   });
 
   const directMutation = useMutation({
     mutationFn: async () => apiClient.post('/notifications', { targetUserId: selectedParent._id, title: directTitle, body: directBody, type: template === 'custom' ? 'general' : 'fee' }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificationHistory'] }); setSelectedParent(null); setParentSearch(''); setDirectTitle(''); setDirectBody(''); setTemplate('due'); alert('Message sent!'); },
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['notificationHistory'] }); setSelectedParent(null); setParentSearch(''); setDirectTitle(''); setDirectBody(''); setTemplate('due'); toast('Message sent.'); },
+    onError: (e: any) => toast(e?.response?.data?.message || 'Failed', 'error'),
   });
 
   const applyTemplate = (tplId: string, name: string) => {
@@ -106,7 +110,26 @@ export default function NotificationCenter() {
             <label className="label">Message</label>
             <textarea className="input-field resize-none min-h-28" placeholder="Write your announcement here…" value={form.body} onChange={e => setForm(p => ({ ...p, body: e.target.value }))} />
           </div>
-          <button className="btn-primary w-full sm:w-auto" onClick={() => broadcastMutation.mutate()} disabled={!form.title || !form.body || broadcastMutation.isPending}>
+          <button
+            className="btn-primary w-full sm:w-auto"
+            onClick={async () => {
+              const audience = form.targetRole === 'parent' ? 'every parent'
+                : form.targetRole === 'teacher' ? 'every teacher'
+                : 'every parent and teacher';
+              if (await confirm({
+                title: 'Send this notification?',
+                message: `It will be pushed to ${audience} in the school straight away.`,
+                details: [
+                  { label: 'Audience', value: audience },
+                  { label: 'Title', value: form.title },
+                ],
+                consequence: 'A notification cannot be recalled once sent.',
+                confirmLabel: 'Send notification',
+                tone: 'info',
+              })) broadcastMutation.mutate();
+            }}
+            disabled={!form.title || !form.body || broadcastMutation.isPending}
+          >
             <Send className="w-3.5 h-3.5 mr-1.5" />{broadcastMutation.isPending ? 'Sending…' : 'Send Notification'}
           </button>
         </div>
@@ -198,6 +221,7 @@ export default function NotificationCenter() {
           )}
         </div>
       )}
+    {dialog}
     </div>
   );
 }

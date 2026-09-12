@@ -6,11 +6,13 @@ import PageHeader from '../../components/ui/PageHeader';
 import SearchInput from '../../components/ui/SearchInput';
 import EmptyState from '../../components/ui/EmptyState';
 import Modal from '../../components/ui/Modal';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const STATUSES = ['all', 'new', 'contacted', 'closed'] as const;
 const STATUS_BADGE: Record<string, string> = { new: 'badge-orange', contacted: 'badge-blue', closed: 'badge-gray' };
 
 export default function EnquiryList() {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [status, setStatus] = useState<string>('all');
   const [search, setSearch] = useState('');
@@ -96,7 +98,15 @@ export default function EnquiryList() {
                     </select>
                   </td>
                   <td className="table-cell" onClick={ev => ev.stopPropagation()}>
-                    <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this enquiry?')) deleteMutation.mutate(e._id); }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                    <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                      if (await confirm({
+                        title: 'Delete this enquiry?',
+                        message: 'The enquiry and its contact details will be removed.',
+                        details: [{ label: 'Name', value: e.name }, { label: 'Phone', value: e.phone ?? '—' }],
+                        consequence: 'This cannot be undone.',
+                        confirmLabel: 'Delete enquiry',
+                      })) deleteMutation.mutate(e._id);
+                    }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                   </td>
                 </tr>
               ))}
@@ -127,6 +137,7 @@ export default function EnquiryList() {
           </div>
         )}
       </Modal>
+    {dialog}
     </div>
   );
 }

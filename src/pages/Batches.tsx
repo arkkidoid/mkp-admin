@@ -6,6 +6,8 @@ import Modal from '../components/ui/Modal';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 const EMPTY = { name: '', teacherId: '', subjectId: '', location: '', classroom: '', capacity: '20', classesPerWeek: '1', numberOfClasses: '12', academicYear: '2025-26' };
 
@@ -16,6 +18,8 @@ const bareLabel = (name: string, code?: string) => {
 };
 
 export default function Batches() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
@@ -54,7 +58,7 @@ export default function Batches() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/admin/batches/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminBatches'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Failed', 'error'),
   });
 
   const selectedCode = (subjects as any[]).find((s: any) => s._id === form.subjectId)?.code;
@@ -97,7 +101,18 @@ export default function Batches() {
                   <td className="table-cell">
                     <div className="flex items-center justify-end gap-1">
                       <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(b)}><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this batch?')) deleteMutation.mutate(b._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                        if (await confirm({
+                          title: 'Delete this batch?',
+                          message: 'The batch will be removed and its students unassigned.',
+                          details: [
+                            { label: 'Batch', value: b.name },
+                            { label: 'Students', value: `${b.children?.length ?? 0}` },
+                          ],
+                          consequence: 'Students stay on the system but lose this batch, and attendance already recorded against it will no longer be attributed to a live batch.',
+                          confirmLabel: 'Delete batch',
+                        })) deleteMutation.mutate(b._id);
+                      }}><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -138,6 +153,7 @@ export default function Batches() {
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }

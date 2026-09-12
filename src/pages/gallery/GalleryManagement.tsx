@@ -4,8 +4,10 @@ import { Trash2, Image } from 'lucide-react';
 import apiClient from '../../api/client';
 import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
+import { useConfirm } from '../../hooks/useConfirm';
 
 export default function GalleryManagement() {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [batchId, setBatchId] = useState('');
 
@@ -62,7 +64,15 @@ export default function GalleryManagement() {
               </div>
               <button
                 className="absolute top-2 right-2 p-1.5 bg-red-500 rounded-full text-white opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600 shadow-soft"
-                onClick={() => { if (confirm('Delete this photo?')) deleteMutation.mutate(item._id); }}
+                onClick={async () => {
+                  if (await confirm({
+                    title: 'Delete this photo?',
+                    message: 'It will be removed from the gallery for everyone who can see it.',
+                    details: [{ label: 'Title', value: item.title ?? '—' }],
+                    consequence: 'This cannot be undone.',
+                    confirmLabel: 'Delete photo',
+                  })) deleteMutation.mutate(item._id);
+                }}
               >
                 <Trash2 className="w-3.5 h-3.5" />
               </button>
@@ -70,6 +80,7 @@ export default function GalleryManagement() {
           ))}
         </div>
       )}
+    {dialog}
     </div>
   );
 }

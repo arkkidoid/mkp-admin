@@ -8,10 +8,14 @@ import SearchInput from '../components/ui/SearchInput';
 import EmptyState from '../components/ui/EmptyState';
 import Pagination from '../components/ui/Pagination';
 import { usePagedList } from '../hooks/usePagedList';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 const EMPTY = { name: '', dateOfBirth: '', gender: 'male', parentId: '', batchId: '', bloodGroup: '', admissionNumber: '' };
 
 export default function Children() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
@@ -67,7 +71,7 @@ export default function Children() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/admin/children/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminChildren'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Delete failed', 'error'),
   });
 
   return (
@@ -124,7 +128,19 @@ export default function Children() {
                   <td className="table-cell">
                     <div className="flex items-center justify-end gap-1">
                       <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(c)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Remove this student?')) deleteMutation.mutate(c._id); }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                        if (await confirm({
+                          title: 'Delete permanently?',
+                          message: 'This erases the enrollment and everything recorded against it.',
+                          details: [
+                            { label: 'Student', value: c.name },
+                            { label: 'Batch', value: c.batch?.name ?? '—' },
+                            { label: 'Parent', value: c.parent?.name ?? '—' },
+                          ],
+                          consequence: 'All attendance, fees, payments and submissions for this enrollment are deleted and cannot be recovered. To end a course while keeping its history, use Stop on the Enrollments screen instead.',
+                          confirmLabel: 'Delete permanently',
+                        })) deleteMutation.mutate(c._id);
+                      }} title="Delete permanently"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -220,6 +236,7 @@ export default function Children() {
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }

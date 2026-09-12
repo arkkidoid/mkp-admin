@@ -7,6 +7,8 @@ import PageHeader from '../../components/ui/PageHeader';
 import SearchInput from '../../components/ui/SearchInput';
 import EmptyState from '../../components/ui/EmptyState';
 import Pagination from '../../components/ui/Pagination';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 const FEE_TYPES = ['tuition', 'transport', 'activity', 'exam', 'other'];
 const STATUS_BADGE: Record<string, string> = {
@@ -16,6 +18,8 @@ const FETCH_LIMIT = 1000;
 const EMPTY = { title: '', amount: '', discount: '0', feeType: 'tuition', dueDate: '', childId: '', parentId: '', month: '', academicYear: '2025-26', classesIncluded: '' };
 
 export default function FeeStructure() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -96,15 +100,28 @@ export default function FeeStructure() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/fees/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminFees'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Delete failed', 'error'),
   });
 
   const recordPayment = async (fee: any) => {
-    if (!confirm(`Record full payment of ₹${fee.finalAmount} for ${fee.title}?`)) return;
+    const ok = await confirm({
+      title: 'Record this payment?',
+      message: 'The fee will be marked paid and the classes it covers added to the student.',
+      details: [
+        { label: 'Student', value: fee.child?.name ?? '—' },
+        { label: 'Fee', value: fee.title },
+        { label: 'Amount', value: `₹${(fee.finalAmount ?? 0).toLocaleString('en-IN')}` },
+        { label: 'Mode', value: 'Cash' },
+      ],
+      consequence: 'The parent will see this as paid immediately.',
+      confirmLabel: 'Record payment',
+      tone: 'info',
+    });
+    if (!ok) return;
     try {
       await apiClient.post(`/fees/${fee._id}/payment`, { amount: fee.finalAmount, paymentMode: 'cash' });
       qc.invalidateQueries({ queryKey: ['adminFees'] });
-    } catch (e: any) { alert(e?.response?.data?.message || 'Failed'); }
+    } catch (e: any) { toast(e?.response?.data?.message || 'Failed', 'error'); }
   };
 
   const f = (k: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => setForm(p => ({ ...p, [k]: e.target.value }));
@@ -209,7 +226,20 @@ export default function FeeStructure() {
                                 <button className="btn-ghost !px-2.5 !py-1 !text-success !text-[11px] hover:!bg-emerald-50" onClick={() => recordPayment(fee)}>Mark Paid</button>
                               )}
                               <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(fee)}><Edit2 className="w-3.5 h-3.5" /></button>
-                              <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this fee record? This cannot be undone.')) deleteMutation.mutate(fee._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                              <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                                if (await confirm({
+                                  title: 'Delete this fee record?',
+                                  message: 'The charge will be removed from the parent\u2019s account.',
+                                  details: [
+                                    { label: 'Fee', value: fee.title },
+                                    { label: 'Student', value: fee.child?.name ?? '—' },
+                                    { label: 'Amount', value: `₹${(fee.finalAmount ?? 0).toLocaleString('en-IN')}` },
+                                    { label: 'Status', value: fee.status },
+                                  ],
+                                  consequence: 'This cannot be undone. If the fee was already paid, the payment record stays but will no longer be linked to a charge.',
+                                  confirmLabel: 'Delete fee',
+                                })) deleteMutation.mutate(fee._id);
+                              }}><Trash2 className="w-3.5 h-3.5" /></button>
                             </div>
                           </td>
                         </tr>
@@ -253,6 +283,7 @@ export default function FeeStructure() {
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }

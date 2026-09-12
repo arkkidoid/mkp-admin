@@ -5,6 +5,7 @@ import apiClient from '../../api/client';
 import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
+import { useConfirm } from '../../hooks/useConfirm';
 
 const EVENT_TYPES = ['academic', 'cultural', 'holiday', 'sports', 'other'];
 const TYPE_COLORS: Record<string, string> = {
@@ -13,6 +14,7 @@ const TYPE_COLORS: Record<string, string> = {
 const EMPTY = { title: '', description: '', startDate: '', location: '', type: 'academic' };
 
 export default function EventList() {
+  const { confirm, dialog } = useConfirm();
   const qc = useQueryClient();
   const [modal, setModal] = useState(false);
   const [editing, setEditing] = useState<any>(null);
@@ -58,7 +60,15 @@ export default function EventList() {
                 <span className={`badge ${TYPE_COLORS[event.type] ?? 'badge-gray'} capitalize`}>{event.type}</span>
                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(event)}><Edit2 className="w-3.5 h-3.5" /></button>
-                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this event?')) deleteMutation.mutate(event._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                    if (await confirm({
+                      title: 'Delete this event?',
+                      message: 'It will be removed from the app for parents and teachers.',
+                      details: [{ label: 'Event', value: event.title }],
+                      consequence: 'This cannot be undone.',
+                      confirmLabel: 'Delete event',
+                    })) deleteMutation.mutate(event._id);
+                  }}><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
               <h3 className="font-bold text-text mb-1.5">{event.title}</h3>
@@ -96,6 +106,7 @@ export default function EventList() {
           <div><label className="label">Description</label><textarea className="input-field resize-none" rows={3} value={form.description} onChange={e => setForm(p => ({ ...p, description: e.target.value }))} placeholder="Brief description…" /></div>
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }

@@ -5,11 +5,15 @@ import apiClient from '../../api/client';
 import Modal from '../../components/ui/Modal';
 import PageHeader from '../../components/ui/PageHeader';
 import EmptyState from '../../components/ui/EmptyState';
+import { useConfirm } from '../../hooks/useConfirm';
+import { useToast } from '../../hooks/useToast';
 
 const COLORS = ['#E53935','#1E88E5','#43A047','#FB8C00','#8E24AA','#00ACC1','#F4511E','#FFB300','#6D4C41','#546E7A'];
 const EMPTY = { name: '', code: '', monthlyFee: '', admissionFee: '', duration: '', ageGroup: '', level: '', color: COLORS[0], icon: 'book', description: '' };
 
 export default function CourseList() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
@@ -47,7 +51,7 @@ export default function CourseList() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/admin/subjects/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminSubjects'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Failed'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Failed', 'error'),
   });
 
   return (
@@ -80,7 +84,15 @@ export default function CourseList() {
                 </div>
                 <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
                   <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(c)}><Edit2 className="w-3.5 h-3.5" /></button>
-                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm(`Remove "${c.name}"?`)) deleteMutation.mutate(c._id); }}><Trash2 className="w-3.5 h-3.5" /></button>
+                  <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                    if (await confirm({
+                      title: 'Delete this course?',
+                      message: 'The course will no longer be available for new enrollments.',
+                      details: [{ label: 'Course', value: c.name }, { label: 'Code', value: c.code ?? '—' }],
+                      consequence: 'Batches already running this course keep their students, but the course itself cannot be recovered.',
+                      confirmLabel: 'Delete course',
+                    })) deleteMutation.mutate(c._id);
+                  }}><Trash2 className="w-3.5 h-3.5" /></button>
                 </div>
               </div>
               {c.description && <p className="text-xs text-text-secondary line-clamp-2 mb-3">{c.description}</p>}
@@ -153,6 +165,7 @@ export default function CourseList() {
           {err && <p className="text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }

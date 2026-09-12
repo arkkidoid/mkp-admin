@@ -8,6 +8,8 @@ import SearchInput from '../components/ui/SearchInput';
 import Pagination from '../components/ui/Pagination';
 import { usePagedList } from '../hooks/usePagedList';
 import EmptyState from '../components/ui/EmptyState';
+import { useConfirm } from '../hooks/useConfirm';
+import { useToast } from '../hooks/useToast';
 
 const EMPTY = { name: '', phone: '', email: '', employeeId: '', qualification: '', experience: '', subjects: [] as string[], accessCode: '' };
 
@@ -24,6 +26,8 @@ const FIELDS: [string, TextKey, string, number?][] = [
 ];
 
 export default function Teachers() {
+  const { confirm, dialog } = useConfirm();
+  const toast = useToast();
   const qc = useQueryClient();
   const [modal, setModal] = useState<{ open: boolean; mode: 'add' | 'edit'; item?: any }>({ open: false, mode: 'add' });
   const [form, setForm] = useState({ ...EMPTY });
@@ -79,7 +83,7 @@ export default function Teachers() {
   const deleteMutation = useMutation({
     mutationFn: async (id: string) => apiClient.delete(`/admin/teachers/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminTeachers'] }),
-    onError: (e: any) => alert(e?.response?.data?.message || 'Delete failed'),
+    onError: (e: any) => toast(e?.response?.data?.message || 'Delete failed', 'error'),
   });
 
   return (
@@ -144,7 +148,18 @@ export default function Teachers() {
                   <td className="table-cell">
                     <div className="flex items-center justify-end gap-1">
                       <button className="btn-ghost !px-2 !py-1.5" onClick={() => openEdit(t)} title="Edit"><Edit2 className="w-3.5 h-3.5" /></button>
-                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={() => { if (confirm('Delete this teacher?')) deleteMutation.mutate(t._id); }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                      <button className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50" onClick={async () => {
+                        if (await confirm({
+                          title: 'Delete this teacher?',
+                          message: 'Their login and profile will be removed permanently.',
+                          details: [
+                            { label: 'Teacher', value: t.name },
+                            { label: 'Phone', value: t.phone ?? '—' },
+                          ],
+                          consequence: 'This cannot be undone. Their batches stay, but will be left without a teacher until reassigned.',
+                          confirmLabel: 'Delete teacher',
+                        })) deleteMutation.mutate(t._id);
+                      }} title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                     </div>
                   </td>
                 </tr>
@@ -213,6 +228,7 @@ export default function Teachers() {
           {err && <p className="sm:col-span-2 text-xs text-error bg-red-50 px-3 py-2 rounded-lg">{err}</p>}
         </div>
       </Modal>
+    {dialog}
     </div>
   );
 }
