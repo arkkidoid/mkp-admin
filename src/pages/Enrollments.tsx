@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Save, X, Edit2, PauseCircle, PlayCircle } from 'lucide-react';
+import { BookOpen, Save, X, Edit2, PauseCircle, PlayCircle, Trash2 } from 'lucide-react';
 import apiClient from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
@@ -49,6 +49,33 @@ export default function Enrollments() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['adminChildren'] }),
     onError: (e: any) => toast(e?.response?.data?.message || 'Could not change status', 'error'),
   });
+
+  // Deliberately reachable only once an enrollment is stopped, so a live one
+  // cannot be erased in a single click.
+  const deleteMutation = useMutation({
+    mutationFn: async (id: string) => apiClient.delete(`/admin/children/${id}`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['adminChildren'] });
+      toast('Enrollment deleted permanently.');
+    },
+    onError: (e: any) => toast(e?.response?.data?.message || 'Delete failed', 'error'),
+  });
+
+  const removeEnrollment = async (c: any) => {
+    if (await confirm({
+      title: 'Delete permanently?',
+      message: 'This erases the enrollment and everything recorded against it.',
+      details: [
+        { label: 'Student', value: c.name },
+        { label: 'Course', value: c.batch?.name ?? '—' },
+        { label: 'Parent', value: c.parent?.name ?? '—' },
+      ],
+      consequence: 'All attendance, fees, payments and submissions for this course are deleted and cannot be recovered. If you only want to pause it, Resume and use Stop instead.',
+      confirmLabel: 'Delete permanently',
+    })) {
+      deleteMutation.mutate(c._id);
+    }
+  };
 
   const toggleStatus = async (c: any) => {
     if (c.isActive === false) {
@@ -186,23 +213,44 @@ export default function Enrollments() {
                       </div>
                     ) : (
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          className="btn-ghost !px-3 !py-1.5 text-xs font-medium"
-                          onClick={() => handleEditClick(c)}
-                          disabled={!c.batch || c.isActive === false}
-                        >
-                          <Edit2 className="w-3 h-3 mr-1" /> Adjust
-                        </button>
-                        <button
-                          className={`btn-ghost !px-3 !py-1.5 text-xs font-medium ${c.isActive === false ? 'hover:!text-success hover:!bg-emerald-50' : 'hover:!text-warning hover:!bg-orange-50'}`}
-                          onClick={() => toggleStatus(c)}
-                          disabled={statusMutation.isPending}
-                          title={c.isActive === false ? 'Resume this enrollment' : 'Stop this enrollment'}
-                        >
-                          {c.isActive === false
-                            ? <><PlayCircle className="w-3.5 h-3.5 mr-1" /> Resume</>
-                            : <><PauseCircle className="w-3.5 h-3.5 mr-1" /> Stop</>}
-                        </button>
+                        {c.isActive === false ? (
+                          <>
+                            <button
+                              className="btn-ghost !px-3 !py-1.5 text-xs font-medium hover:!text-success hover:!bg-emerald-50"
+                              onClick={() => toggleStatus(c)}
+                              disabled={statusMutation.isPending}
+                              title="Resume this enrollment"
+                            >
+                              <PlayCircle className="w-3.5 h-3.5 mr-1" /> Resume
+                            </button>
+                            <button
+                              className="btn-ghost !px-2 !py-1.5 hover:!text-error hover:!bg-red-50"
+                              onClick={() => removeEnrollment(c)}
+                              disabled={deleteMutation.isPending}
+                              title="Delete permanently"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="btn-ghost !px-3 !py-1.5 text-xs font-medium"
+                              onClick={() => handleEditClick(c)}
+                              disabled={!c.batch}
+                            >
+                              <Edit2 className="w-3 h-3 mr-1" /> Adjust
+                            </button>
+                            <button
+                              className="btn-ghost !px-3 !py-1.5 text-xs font-medium hover:!text-warning hover:!bg-orange-50"
+                              onClick={() => toggleStatus(c)}
+                              disabled={statusMutation.isPending}
+                              title="Stop this enrollment"
+                            >
+                              <PauseCircle className="w-3.5 h-3.5 mr-1" /> Stop
+                            </button>
+                          </>
+                        )}
                       </div>
                     )}
                   </td>
