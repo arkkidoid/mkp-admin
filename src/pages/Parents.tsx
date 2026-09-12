@@ -157,7 +157,22 @@ export default function Parents() {
                   </td>
                   <td className="table-cell text-sm text-text-secondary">{p.profile?.occupation || '—'}</td>
                   <td className="table-cell">
-                    <span className="badge badge-blue">{p.profile?.children?.length ?? 0} kids</span>
+                    {(() => {
+                      const kids = p.profile?.children?.length ?? 0;
+                      // Enrollments outnumber children when a child takes more
+                      // than one course; show both so neither number surprises.
+                      const enrollments = p.profile?.enrollmentCount ?? kids;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span className="badge badge-blue">{kids} {kids === 1 ? 'kid' : 'kids'}</span>
+                          {enrollments > kids && (
+                            <span className="text-xs text-text-light" title={`${enrollments} course enrollments`}>
+                              {enrollments} courses
+                            </span>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                   <td className="table-cell">
                     <span className={p.isActive ? 'badge badge-green' : 'badge badge-red'}>{p.isActive ? 'Active' : 'Inactive'}</span>
