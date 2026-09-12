@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { BookOpen, Save, X, Edit2 } from 'lucide-react';
+import { BookOpen, Save, X, Edit2, PauseCircle, PlayCircle } from 'lucide-react';
 import apiClient from '../api/client';
 import PageHeader from '../components/ui/PageHeader';
 import SearchInput from '../components/ui/SearchInput';
@@ -12,12 +12,14 @@ export default function Enrollments() {
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState<string>('');
+  // 'true' active, 'false' stopped, 'all' both.
+  const [status, setStatus] = useState<'true' | 'false' | 'all'>('true');
 
   // Server-side paging and search: filtering only the fetched page could
   // never surface a record that was never fetched.
   const {
     rows: children, meta, isLoading, isFetching, setPage, search, setSearch,
-  } = usePagedList<any>({ key: 'adminChildren', url: '/admin/children' });
+  } = usePagedList<any>({ key: 'adminChildren', url: '/admin/children', params: { isActive: status } });
 
   const filtered = children as any[];
 
@@ -34,6 +36,30 @@ export default function Enrollments() {
       setEditingId(null);
     },
   });
+
+  // Stops or resumes one course enrollment. The child's other courses, and all
+  // of this course's attendance and fee history, are untouched.
+  const statusMutation = useMutation({
+    mutationFn: async ({ id, isActive }: { id: string; isActive: boolean }) =>
+      apiClient.patch(`/admin/children/${id}/status`, { isActive }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['adminChildren'] }),
+    onError: (e: any) => alert(e?.response?.data?.message || 'Could not change status'),
+  });
+
+  const toggleStatus = (c: any) => {
+    if (c.isActive === false) {
+      statusMutation.mutate({ id: c._id, isActive: true });
+      return;
+    }
+    if (confirm(
+      `Stop ${c.name}'s enrollment in ${c.batch?.name ?? 'this course'}?\n\n` +
+      `They will come off the teacher's attendance list and the course will ` +
+      `disappear from the parent's app. Attendance and fee history are kept, ` +
+      `and any unpaid fee stays due. You can resume this at any time.`
+    )) {
+      statusMutation.mutate({ id: c._id, isActive: false });
+    }
+  };
 
   const handleEditClick = (child: any) => {
     setEditingId(child._id);
@@ -55,12 +81,21 @@ export default function Enrollments() {
     <div className="page-container">
       <PageHeader
         title="Enrollments & Classes Left"
-        subtitle="Track and adjust remaining classes for all active enrollments"
+        subtitle="Track classes, and stop or resume a course without losing its history"
       />
 
       <div className="card">
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
           <SearchInput value={search} onChange={setSearch} placeholder="Search by student or batch…" className="w-full sm:w-80" />
+          <select
+            className="select-field sm:w-44"
+            value={status}
+            onChange={e => setStatus(e.target.value as 'true' | 'false' | 'all')}
+          >
+            <option value="true">Active only</option>
+            <option value="false">Stopped only</option>
+            <option value="all">All enrollments</option>
+          </select>
         </div>
 
         <div className="overflow-x-auto">
@@ -70,14 +105,15 @@ export default function Enrollments() {
                 <th className="table-header">Student</th>
                 <th className="table-header">Enrolled Batch</th>
                 <th className="table-header">Classes Left</th>
+                <th className="table-header">Status</th>
                 <th className="table-header text-right">Action</th>
               </tr>
             </thead>
             <tbody>
               {isLoading ? (
-                <tr><td colSpan={4} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
+                <tr><td colSpan={5} className="py-16 text-center text-sm text-text-secondary">Loading…</td></tr>
               ) : filtered.length === 0 ? (
-                <tr><td colSpan={4}>
+                <tr><td colSpan={5}>
                   <EmptyState icon={BookOpen} title="No enrollments found" description="No students match your search." />
                 </td></tr>
               ) : filtered.map((c: any) => (
@@ -125,6 +161,13 @@ export default function Enrollments() {
                       )
                     )}
                   </td>
+                  <td className="table-cell">
+                    {c.isActive === false ? (
+                      <span className="badge badge-gray">Stopped</span>
+                    ) : (
+                      <span className="badge badge-green">Active</span>
+                    )}
+                  </td>
                   <td className="table-cell text-right">
                     {editingId === c._id ? (
                       <div className="flex items-center justify-end gap-2">
@@ -132,13 +175,25 @@ export default function Enrollments() {
                         <button className="btn-ghost !px-2 !py-1 !text-text-light hover:!bg-gray-100" onClick={() => setEditingId(null)} title="Cancel"><X className="w-4 h-4" /></button>
                       </div>
                     ) : (
-                      <button 
-                        className="btn-ghost !px-3 !py-1.5 text-xs font-medium"
-                        onClick={() => handleEditClick(c)}
-                        disabled={!c.batch}
-                      >
-                        <Edit2 className="w-3 h-3 mr-1" /> Adjust
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          className="btn-ghost !px-3 !py-1.5 text-xs font-medium"
+                          onClick={() => handleEditClick(c)}
+                          disabled={!c.batch || c.isActive === false}
+                        >
+                          <Edit2 className="w-3 h-3 mr-1" /> Adjust
+                        </button>
+                        <button
+                          className={`btn-ghost !px-3 !py-1.5 text-xs font-medium ${c.isActive === false ? 'hover:!text-success hover:!bg-emerald-50' : 'hover:!text-warning hover:!bg-orange-50'}`}
+                          onClick={() => toggleStatus(c)}
+                          disabled={statusMutation.isPending}
+                          title={c.isActive === false ? 'Resume this enrollment' : 'Stop this enrollment'}
+                        >
+                          {c.isActive === false
+                            ? <><PlayCircle className="w-3.5 h-3.5 mr-1" /> Resume</>
+                            : <><PauseCircle className="w-3.5 h-3.5 mr-1" /> Stop</>}
+                        </button>
+                      </div>
                     )}
                   </td>
                 </tr>
