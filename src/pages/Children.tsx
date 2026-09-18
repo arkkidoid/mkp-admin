@@ -33,6 +33,26 @@ export default function Children() {
   const { data: parents = [] } = useQuery({ queryKey: ['adminParentsAll'], queryFn: async () => (await apiClient.get('/admin/parents?limit=1000')).data.data ?? [] });
   const { data: batches = [] } = useQuery({ queryKey: ['adminBatchesAll'], queryFn: async () => (await apiClient.get('/admin/batches?limit=1000')).data.data ?? [] });
 
+  // "Existing Student (New Batch)" must offer every child, not the page the
+  // table happens to be showing — reading the table's rows here capped it at
+  // 20 and tied it to the search box. Stopped enrollments are included so a
+  // child who left one course can still be enrolled in another.
+  const { data: allEnrollments = [] } = useQuery({
+    queryKey: ['adminChildrenAll'],
+    queryFn: async () => (await apiClient.get('/admin/children?limit=1000&isActive=all')).data.data ?? [],
+  });
+
+  // One entry per child: a child in four courses is four records, and listing
+  // each would repeat their name four times in the picker.
+  const existingStudents = (() => {
+    const seen = new Map<string, any>();
+    for (const c of allEnrollments as any[]) {
+      const key = `${(c.name ?? '').trim().toLowerCase()}|${c.parent?._id ?? ''}`;
+      if (!seen.has(key)) seen.set(key, c);
+    }
+    return [...seen.values()].sort((a, b) => (a.name ?? '').localeCompare(b.name ?? ''));
+  })();
+
   const openAdd = () => { setForm({ ...EMPTY }); setErr(''); setIsExisting(false); setModal({ open: true, mode: 'add' }); };
   const openEdit = (c: any) => {
     setForm({ name: c.name, dateOfBirth: c.dateOfBirth?.slice(0, 10) ?? '', gender: c.gender ?? 'male', parentId: c.parent?._id ?? '', batchId: c.batch?._id ?? '', bloodGroup: c.bloodGroup ?? '', admissionNumber: c.admissionNumber ?? '' });
@@ -45,7 +65,7 @@ export default function Children() {
 
   const [isExisting, setIsExisting] = useState(false);
   const handleSelectExisting = (childId: string) => {
-    const c = (children as any[]).find((x: any) => x._id === childId);
+    const c = existingStudents.find((x: any) => x._id === childId);
     if (c) {
       setForm({
         name: c.name,
@@ -64,7 +84,7 @@ export default function Children() {
       if (modal.mode === 'add') await apiClient.post('/admin/children', form);
       else await apiClient.put(`/admin/children/${modal.item._id}`, form);
     },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminChildren'] }); close(); },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['adminChildren'] }); qc.invalidateQueries({ queryKey: ['adminChildrenAll'] }); close(); },
     onError: (e: any) => setErr(e?.response?.data?.message || 'Save failed'),
   });
 
@@ -78,7 +98,7 @@ export default function Children() {
     <div className="page-container">
       <PageHeader
         title="Students"
-        subtitle={`${(children as any[]).length} enrolled students`}
+        subtitle={`${meta?.total ?? (children as any[]).length} enrolled students`}
         action={<button className="btn-primary" onClick={openAdd}><Plus className="w-3.5 h-3.5 mr-1.5" />Enroll Student</button>}
       />
 
@@ -189,7 +209,7 @@ export default function Children() {
               <label className="label">Select Existing Student</label>
               <select className="select-field" onChange={(e) => handleSelectExisting(e.target.value)}>
                 <option value="">-- Choose Student to Copy --</option>
-                {(children as any[]).map(c => <option key={c._id} value={c._id}>{c.name} (Parent: {c.parent?.name})</option>)}
+                {existingStudents.map(c => <option key={c._id} value={c._id}>{c.name} (Parent: {c.parent?.name ?? '—'})</option>)}
               </select>
             </div>
           )}

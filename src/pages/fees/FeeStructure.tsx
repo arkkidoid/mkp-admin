@@ -46,9 +46,23 @@ export default function FeeStructure() {
     queryFn: async () => (await apiClient.get(`/admin/children?limit=${FETCH_LIMIT}`)).data.data ?? [],
   });
 
+  // Every parent, so one with no fee records yet still gets a row — the list
+  // is otherwise built from fees, which left those parents invisible.
+  const { data: allParents = [] } = useQuery({
+    queryKey: ['adminParentsAll'],
+    queryFn: async () => (await apiClient.get(`/admin/parents?limit=${FETCH_LIMIT}`)).data.data ?? [],
+  });
+
+  const q = search.trim().toLowerCase();
+  const matchesParent = (p: any) =>
+    !q || (p?.name ?? '').toLowerCase().includes(q) || (p?.phone ?? '').toLowerCase().includes(q);
+
+  // Search covers the parent too, so typing a parent's name finds their row.
   const fees = (feesData as any[]).filter(f =>
-    (f.title ?? '').toLowerCase().includes(search.toLowerCase()) ||
-    (f.child?.name ?? '').toLowerCase().includes(search.toLowerCase())
+    !q ||
+    (f.title ?? '').toLowerCase().includes(q) ||
+    (f.child?.name ?? '').toLowerCase().includes(q) ||
+    matchesParent(f.parent)
   );
 
   const totalPending = fees.filter(f => ['pending', 'overdue'].includes(f.status)).reduce((s, f) => s + (f.finalAmount ?? 0), 0);
@@ -68,6 +82,16 @@ export default function FeeStructure() {
     acc[pId].fees.push(f);
     return acc;
   }, {});
+
+  // Parents with no fees join the end of the list — only under "All Status",
+  // since they have nothing pending, paid or overdue to match a status filter.
+  if (!statusFilter) {
+    for (const p of allParents as any[]) {
+      if (!feesByParent[p._id] && matchesParent(p)) {
+        feesByParent[p._id] = { parent: p, fees: [] };
+      }
+    }
+  }
   const parentGroups = Object.values(feesByParent);
   const [expandedParents, setExpandedParents] = useState<string[]>([]);
 
@@ -191,10 +215,16 @@ export default function FeeStructure() {
                               <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center"><User className="w-4 h-4 text-primary" /></div>
                               <div>
                                 <p className="font-bold text-text">{group.parent?.name ?? 'Unassigned'}</p>
-                                <p className="text-xs text-text-secondary">{group.parent?.phone || 'No phone'} · {group.fees.length} fee records</p>
+                                <p className="text-xs text-text-secondary">
+                                  {group.parent?.phone || 'No phone'} · {group.fees.length === 0 ? 'no fee records yet' : `${group.fees.length} fee record${group.fees.length === 1 ? '' : 's'}`}
+                                </p>
                               </div>
                             </div>
-                            {parentPending > 0 ? (
+                            {group.fees.length === 0 ? (
+                              <div className="text-right">
+                                <span className="badge badge-gray">No fees</span>
+                              </div>
+                            ) : parentPending > 0 ? (
                               <div className="text-right">
                                 <p className="text-xs text-error font-medium">Pending Dues</p>
                                 <p className="font-bold text-error">₹{parentPending.toLocaleString('en-IN')}</p>
